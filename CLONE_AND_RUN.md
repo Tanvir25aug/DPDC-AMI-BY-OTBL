@@ -59,18 +59,6 @@ npm run dev
 
 ---
 
-## Step 4: Login
-
-**Open browser:** http://localhost:5173
-
-**Default credentials:**
-- Username: `admin`
-- Password: `admin123`
-
-⚠️ **Change password after first login!**
-
----
-
 ## Prerequisites Required
 
 - Node.js v16+ → https://nodejs.org/
