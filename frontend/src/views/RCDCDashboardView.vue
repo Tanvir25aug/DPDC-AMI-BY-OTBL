@@ -843,8 +843,8 @@ const getMeterStatusForModal = (commandType, commandStatus) => {
   const type = commandType?.trim().toUpperCase();
   const status = commandStatus?.trim().toUpperCase();
 
-  // Debug logging
-  console.log('getMeterStatusForModal:', { original: commandType, type, status });
+  // Debug logging - Version 2.0 (Fixed DC/RC logic)
+  console.log('getMeterStatusForModal v2.0:', { original: commandType, type, status });
 
   // Handle RC/RemoteConnect commands
   if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMPLETED') {
