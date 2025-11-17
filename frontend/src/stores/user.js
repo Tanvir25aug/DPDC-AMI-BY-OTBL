@@ -24,11 +24,15 @@ export const useUserStore = defineStore('user', {
       try {
         const params = {
           page: options.page || this.pagination.page,
-          limit: options.limit || this.pagination.limit,
-          search: options.search || '',
-          role: options.role || null,
-          isActive: options.isActive !== undefined ? options.isActive : null
+          limit: options.limit || this.pagination.limit
         };
+
+        // Only add optional parameters if they have values
+        if (options.search) params.search = options.search;
+        if (options.role) params.role = options.role;
+        if (options.isActive !== undefined && options.isActive !== null) {
+          params.isActive = options.isActive;
+        }
 
         const response = await api.get('/users', { params });
         this.users = response.data.data;

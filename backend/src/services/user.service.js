@@ -19,21 +19,22 @@ class UserService {
     const where = {};
 
     // Search filter
-    if (search) {
+    if (search && search !== '' && search !== 'null' && search !== 'undefined') {
       where[Op.or] = [
         { username: { [Op.iLike]: `%${search}%` } },
         { email: { [Op.iLike]: `%${search}%` } }
       ];
     }
 
-    // Role filter
-    if (role) {
-      where.role_id = role;
+    // Role filter - ensure it's a valid integer
+    if (role && role !== 'null' && role !== 'undefined' && !isNaN(parseInt(role))) {
+      where.role_id = parseInt(role);
     }
 
-    // Active status filter
-    if (isActive !== null) {
-      where.is_active = isActive;
+    // Active status filter - handle string booleans from query params
+    if (isActive !== null && isActive !== 'null' && isActive !== 'undefined') {
+      // Convert string booleans to actual booleans
+      where.is_active = isActive === true || isActive === 'true';
     }
 
     const { count, rows } = await User.findAndCountAll({
