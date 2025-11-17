@@ -1,0 +1,34 @@
+{
+  "name": "dpdc-ami-frontend",
+  "version": "1.0.0",
+  "description": "DPDC AMI by OTBL - Frontend Application",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+  },
+  "dependencies": {
+    "@heroicons/vue": "^2.2.0",
+    "@vueuse/core": "^10.7.2",
+    "axios": "^1.6.5",
+    "chart.js": "^4.4.1",
+    "pinia": "^2.1.7",
+    "socket.io-client": "^4.8.1",
+    "vue": "^3.4.15",
+    "vue-chartjs": "^5.3.0",
+    "vue-router": "^4.2.5",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
+    "@vitejs/plugin-vue": "^5.0.3",
+    "autoprefixer": "^10.4.22",
+    "eslint": "^8.56.0",
+    "eslint-plugin-vue": "^9.20.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.18",
+    "vite": "^5.0.11"
+  }
+}

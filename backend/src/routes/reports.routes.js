@@ -1,0 +1,33 @@
+const express = require('express');
+const router = express.Router();
+const reportsController = require('../controllers/reports.controller');
+const { authenticate } = require('../middleware/auth');
+
+// All report routes require authentication
+router.use(authenticate);
+
+// Get daily RC/DC command count (aggregated totals)
+router.get('/daily_connect_disconnect_count', reportsController.getDailyConnectDisconnectCount);
+
+// Get RC/DC NOCS aggregated summary (NOCS breakdown)
+router.get('/rc_dc_nocs_aggregated', reportsController.getRCDCNocsAggregated);
+
+// Get RC/DC analytics summary (detailed transactions)
+router.get('/rc_dc_analytics_summary', reportsController.getRCDCAnalyticsSummary);
+
+// Get meter-wise commands (detailed meter list)
+router.get('/meter_wise_commands', reportsController.getMeterWiseCommands);
+
+// Get meter-wise commands by NOCS (filtered meter list for specific NOCS)
+router.get('/meter_wise_commands_by_nocs', reportsController.getMeterWiseCommandsByNocs);
+
+// Download NOCS report as PDF
+router.get('/download_nocs_report_pdf', reportsController.downloadNocsReportPDF);
+
+// Real-time control endpoints
+router.post('/realtime/start', reportsController.startRealtime);
+router.post('/realtime/stop', reportsController.stopRealtime);
+router.get('/realtime/status', reportsController.getRealtimeStatus);
+router.post('/realtime/broadcast', reportsController.broadcastNow);
+
+module.exports = router;
