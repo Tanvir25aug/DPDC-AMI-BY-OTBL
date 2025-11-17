@@ -840,18 +840,27 @@ const downloadNocsReport = async (nocsRow) => {
  * Helper function to calculate meter status for modal display
  */
 const getMeterStatusForModal = (commandType, commandStatus) => {
-  const type = commandType?.trim();
-  const status = commandStatus?.trim();
+  const type = commandType?.trim().toUpperCase();
+  const status = commandStatus?.trim().toUpperCase();
 
-  if (type === 'D1-RemoteConnect' && status === 'COMPLETED') {
+  // Handle RC/RemoteConnect commands
+  if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMPLETED') {
     return 'Connected';
-  } else if (type === 'D1-RemoteDisconnect' && status === 'COMPLETED') {
+  }
+  // Handle DC/RemoteDisconnect commands
+  else if ((type === 'DC' || type === 'D1-REMOTEDISCONNECT') && status === 'COMPLETED') {
     return 'Disconnected';
-  } else if (type === 'D1-RemoteConnect' && status === 'COMINPROG') {
+  }
+  // Handle RC in progress
+  else if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMINPROG') {
     return 'RC In Progress';
-  } else if (type === 'D1-RemoteDisconnect' && status === 'COMINPROG') {
+  }
+  // Handle DC in progress
+  else if ((type === 'DC' || type === 'D1-REMOTEDISCONNECT') && status === 'COMINPROG') {
     return 'DC In Progress';
-  } else if (status === 'DISCARDED') {
+  }
+  // Handle discarded commands
+  else if (status === 'DISCARDED') {
     return 'Discarded';
   }
 

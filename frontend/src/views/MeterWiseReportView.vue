@@ -330,7 +330,10 @@
             </template>
 
             <template #cell-COMMAND_TYPE="{ row }">
-              <span v-if="row.COMMAND_TYPE === 'D1-RemoteConnect'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/10 text-success">
+              <span
+                v-if="row.COMMAND_TYPE?.toUpperCase() === 'RC' || row.COMMAND_TYPE?.toUpperCase() === 'D1-REMOTECONNECT'"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/10 text-success"
+              >
                 RC
               </span>
               <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-info/10 text-info">
@@ -549,13 +552,26 @@ const clearAllFilters = () => {
 };
 
 const getMeterStatus = (commandType, commandStatus) => {
-  const type = commandType?.trim();
-  const status = commandStatus?.trim();
+  const type = commandType?.trim().toUpperCase();
+  const status = commandStatus?.trim().toUpperCase();
 
-  if (type === 'D1-RemoteConnect' && status === 'COMPLETED') return 'Connected';
-  if (type === 'D1-RemoteDisconnect' && status === 'COMPLETED') return 'Disconnected';
-  if (type === 'D1-RemoteConnect' && status === 'COMINPROG') return 'RC In Progress';
-  if (type === 'D1-RemoteDisconnect' && status === 'COMINPROG') return 'DC In Progress';
+  // Handle RC/RemoteConnect commands - COMPLETED
+  if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMPLETED') {
+    return 'Connected';
+  }
+  // Handle DC/RemoteDisconnect commands - COMPLETED
+  if ((type === 'DC' || type === 'D1-REMOTEDISCONNECT') && status === 'COMPLETED') {
+    return 'Disconnected';
+  }
+  // Handle RC in progress
+  if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMINPROG') {
+    return 'RC In Progress';
+  }
+  // Handle DC in progress
+  if ((type === 'DC' || type === 'D1-REMOTEDISCONNECT') && status === 'COMINPROG') {
+    return 'DC In Progress';
+  }
+  // Handle discarded
   if (status === 'DISCARDED') return 'Discarded';
 
   return 'Unknown';
@@ -609,16 +625,21 @@ const formatTime = (date) => {
 const exportToExcel = () => {
   try {
     // Prepare data for export
-    const exportData = filteredData.value.map(item => ({
-      'NOCS Name': item.NOCS_NAME,
-      'Meter Number': item.MSN,
-      'Customer ID': item.OLD_CONSUMER_ID,
-      'Command Type': item.COMMAND_TYPE === 'D1-RemoteConnect' ? 'RC' : 'DC',
-      'Command Status': item.COMMAND_STATUS,
-      'Meter Status': getMeterStatus(item.COMMAND_TYPE, item.COMMAND_STATUS),
-      'Trigger Date': item.DATE_OF_COMMAND_TRIGGER,
-      'Payoff Balance': item.PAYOFF_BALNCE
-    }));
+    const exportData = filteredData.value.map(item => {
+      const type = item.COMMAND_TYPE?.toUpperCase();
+      const displayType = (type === 'RC' || type === 'D1-REMOTECONNECT') ? 'RC' : 'DC';
+
+      return {
+        'NOCS Name': item.NOCS_NAME,
+        'Meter Number': item.MSN,
+        'Customer ID': item.OLD_CONSUMER_ID,
+        'Command Type': displayType,
+        'Command Status': item.COMMAND_STATUS,
+        'Meter Status': getMeterStatus(item.COMMAND_TYPE, item.COMMAND_STATUS),
+        'Trigger Date': item.DATE_OF_COMMAND_TRIGGER,
+        'Payoff Balance': item.PAYOFF_BALNCE
+      };
+    });
 
     // Create workbook and worksheet
     const ws = XLSX.utils.json_to_sheet(exportData);
