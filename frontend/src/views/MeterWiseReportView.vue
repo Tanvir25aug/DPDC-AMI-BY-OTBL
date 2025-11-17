@@ -331,7 +331,7 @@
 
             <template #cell-COMMAND_TYPE="{ row }">
               <span
-                v-if="row.COMMAND_TYPE?.toUpperCase() === 'RC' || row.COMMAND_TYPE?.toUpperCase() === 'D1-REMOTECONNECT'"
+                v-if="row.COMMAND_TYPE?.trim().toUpperCase() === 'RC' || row.COMMAND_TYPE?.trim().toUpperCase() === 'D1-REMOTECONNECT'"
                 class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/10 text-success"
               >
                 RC
