@@ -843,8 +843,15 @@ const getMeterStatusForModal = (commandType, commandStatus) => {
   const type = commandType?.trim().toUpperCase();
   const status = commandStatus?.trim().toUpperCase();
 
-  // Debug logging - Version 2.0 (Fixed DC/RC logic)
-  console.log('getMeterStatusForModal v2.0:', { original: commandType, type, status });
+  // Debug logging - Version 2.1 (Fixed DISCARDED priority)
+  console.log('getMeterStatusForModal v2.1:', { original: commandType, originalStatus: commandStatus, type, status });
+
+  // IMPORTANT: Check DISCARDED first before any other conditions
+  // This prevents wrong status when command is discarded
+  if (status === 'DISCARDED') {
+    console.log('→ Returning: Discarded (Priority Check)');
+    return 'Discarded';
+  }
 
   // Handle RC/RemoteConnect commands
   if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMPLETED') {
@@ -865,11 +872,6 @@ const getMeterStatusForModal = (commandType, commandStatus) => {
   else if ((type === 'DC' || type === 'D1-REMOTEDISCONNECT') && status === 'COMINPROG') {
     console.log('→ Returning: DC In Progress');
     return 'DC In Progress';
-  }
-  // Handle discarded commands
-  else if (status === 'DISCARDED') {
-    console.log('→ Returning: Discarded');
-    return 'Discarded';
   }
 
   console.log('→ Returning: Unknown');
