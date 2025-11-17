@@ -68,6 +68,14 @@ export const useUserStore = defineStore('user', {
         await this.fetchUsers();
         return { success: true, data: response.data.data };
       } catch (error) {
+        // Handle validation errors
+        if (error.response?.data?.details) {
+          const validationErrors = error.response.data.details
+            .map(err => err.msg)
+            .join(', ');
+          this.error = validationErrors;
+          return { success: false, message: validationErrors };
+        }
         this.error = error.response?.data?.message || 'Failed to create user';
         return { success: false, message: this.error };
       } finally {
@@ -82,6 +90,14 @@ export const useUserStore = defineStore('user', {
         await this.fetchUsers();
         return { success: true, data: response.data.data };
       } catch (error) {
+        // Handle validation errors
+        if (error.response?.data?.details) {
+          const validationErrors = error.response.data.details
+            .map(err => err.msg)
+            .join(', ');
+          this.error = validationErrors;
+          return { success: false, message: validationErrors };
+        }
         this.error = error.response?.data?.message || 'Failed to update user';
         return { success: false, message: this.error };
       } finally {

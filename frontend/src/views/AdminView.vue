@@ -369,9 +369,13 @@
                     type="password"
                     class="block w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-300 transition-all bg-gray-50 focus:bg-white"
                     placeholder="Enter password"
+                    minlength="8"
                     required
                   />
                 </div>
+                <p class="text-xs text-gray-600 mt-2">
+                  Must be at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)
+                </p>
               </div>
 
               <!-- Role -->
@@ -538,15 +542,41 @@ const saveUser = async () => {
   saving.value = true;
   formError.value = null;
 
+  // Validate password for new users
+  if (!editingUser.value) {
+    const password = userForm.value.password;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+    if (!password || password.length < 8) {
+      formError.value = 'Password must be at least 8 characters long';
+      saving.value = false;
+      return;
+    }
+
+    if (!passwordRegex.test(password)) {
+      formError.value = 'Password must contain uppercase, lowercase, number, and special character (@$!%*?&)';
+      saving.value = false;
+      return;
+    }
+  }
+
+  // Prepare user data - remove empty strings
+  const userData = {};
+  if (userForm.value.username) userData.username = userForm.value.username;
+  if (userForm.value.email) userData.email = userForm.value.email;
+  if (userForm.value.password) userData.password = userForm.value.password;
+  if (userForm.value.role_id !== '' && userForm.value.role_id !== null) {
+    userData.role_id = parseInt(userForm.value.role_id);
+  }
+  if (editingUser.value) {
+    userData.is_active = userForm.value.is_active;
+  }
+
   let result;
   if (editingUser.value) {
-    result = await userStore.updateUser(editingUser.value.id, {
-      email: userForm.value.email,
-      role_id: userForm.value.role_id,
-      is_active: userForm.value.is_active
-    });
+    result = await userStore.updateUser(editingUser.value.id, userData);
   } else {
-    result = await userStore.createUser(userForm.value);
+    result = await userStore.createUser(userData);
   }
 
   saving.value = false;
