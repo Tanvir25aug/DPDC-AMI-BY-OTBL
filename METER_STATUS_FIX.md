@@ -1,11 +1,23 @@
 # Meter Status Display Fix - Instructions
 
-## Issue
-- DC + COMPLETED showing "Connected" instead of "Disconnected"
-- DC + COMINPROG showing "RC In Progress" instead of "DC In Progress"
+## Issues Fixed
 
-## Root Cause
-The fix has been applied to the code, but your browser is showing **cached old JavaScript**.
+### Issue 1: Wrong Command Type Display ✅ FIXED
+- SQL returns: `D1-RemoteConnect` (with trailing spaces)
+- Display showed: **"DC"** badge (WRONG!)
+- Should show: **"RC"** badge
+
+**Root Cause**: Command Type badge wasn't trimming trailing spaces from SQL data
+
+### Issue 2: Contradictory Display ✅ FIXED
+- Command Type: "DC"
+- Meter Status: "Connected"
+- This is contradictory! (DC should be Disconnected)
+
+**Root Cause**: Badge template didn't trim spaces, but meter status function did
+
+### Issue 3: Browser Cache
+The fixes have been applied to the code, but your browser may be showing **cached old JavaScript**.
 
 ## Solution: Clear Browser Cache and Reload
 
