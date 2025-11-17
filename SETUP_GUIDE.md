@@ -6,7 +6,20 @@ Follow these steps to apply all the UI/UX improvements to your DPDC AMI system.
 
 ---
 
-## Step 1: Install Backend Dependencies
+## Step 1: Create Environment File
+
+First, create a `.env` file in the backend directory:
+
+```bash
+cd backend
+cp .env.development .env
+```
+
+This file contains all the database credentials and configuration needed for the application to run. Without it, you'll get database connection errors.
+
+---
+
+## Step 2: Install Backend Dependencies
 
 ```bash
 cd backend
@@ -17,7 +30,7 @@ This package is needed for parsing user agent strings to extract device, browser
 
 ---
 
-## Step 2: Run Database Migrations
+## Step 3: Run Database Migrations
 
 Create the new database tables for activity tracking:
 
@@ -41,9 +54,16 @@ You should see:
 up 20250117000001-add-activity-tracking-tables.js
 ```
 
+**Important:** If you encounter an error about missing `query_logs` table, run this fix:
+
+```bash
+cd backend
+node -e "const s=require('./src/config/database');(async()=>{await s.authenticate();await s.query('CREATE TABLE IF NOT EXISTS query_logs(id SERIAL PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,query_text TEXT NOT NULL,execution_time INTEGER,rows_returned INTEGER,status VARCHAR(20) DEFAULT \\'success\\',error_message TEXT,executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);CREATE INDEX IF NOT EXISTS idx_query_logs_user_id ON query_logs(user_id);CREATE INDEX IF NOT EXISTS idx_query_logs_executed_at ON query_logs(executed_at);');console.log('✓ query_logs table created');process.exit(0)})().catch(e=>{console.error(e);process.exit(1)});"
+```
+
 ---
 
-## Step 3: Update Environment Variables (Optional)
+## Step 4: Update Environment Variables (Optional)
 
 If you want to configure session expiration or other activity tracking settings, add these to your `.env` file:
 
@@ -59,7 +79,7 @@ ACTIVITY_LOG_RETENTION_DAYS=90
 
 ---
 
-## Step 4: Restart Backend Server
+## Step 5: Restart Backend Server
 
 ```bash
 cd backend
@@ -75,7 +95,7 @@ The server should start without errors. Check the console for:
 
 ---
 
-## Step 5: Test Frontend
+## Step 6: Test Frontend
 
 No additional installation needed for the frontend - all changes use existing Tailwind CSS.
 
@@ -96,7 +116,7 @@ npm run dev
 
 ---
 
-## Step 6: Test Activity Tracking
+## Step 7: Test Activity Tracking
 
 ### Test Login Tracking
 
@@ -125,7 +145,7 @@ SELECT * FROM user_activities WHERE activity_type = 'query_executed' ORDER BY cr
 
 ---
 
-## Step 7: Test API Endpoints
+## Step 8: Test API Endpoints
 
 Use Postman or curl to test the new API endpoints:
 
