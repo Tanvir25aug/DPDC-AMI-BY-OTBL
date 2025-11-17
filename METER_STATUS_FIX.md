@@ -113,4 +113,9 @@ Debug logging has been added to help diagnose any remaining issues.
 ---
 
 **Last Updated**: 2025-01-17
-**Fix Commit**: 3790477, 18333af
+**Fix Commits**:
+- b29390f - RC/DC Dashboard modal badges
+- 506576a - DISCARDED priority fix
+- fe482b8 - Command Type trimming
+- 3790477 - Short/long format support
+- Version: 2.1
