@@ -843,27 +843,36 @@ const getMeterStatusForModal = (commandType, commandStatus) => {
   const type = commandType?.trim().toUpperCase();
   const status = commandStatus?.trim().toUpperCase();
 
+  // Debug logging
+  console.log('getMeterStatusForModal:', { original: commandType, type, status });
+
   // Handle RC/RemoteConnect commands
   if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMPLETED') {
+    console.log('→ Returning: Connected');
     return 'Connected';
   }
   // Handle DC/RemoteDisconnect commands
   else if ((type === 'DC' || type === 'D1-REMOTEDISCONNECT') && status === 'COMPLETED') {
+    console.log('→ Returning: Disconnected');
     return 'Disconnected';
   }
   // Handle RC in progress
   else if ((type === 'RC' || type === 'D1-REMOTECONNECT') && status === 'COMINPROG') {
+    console.log('→ Returning: RC In Progress');
     return 'RC In Progress';
   }
   // Handle DC in progress
   else if ((type === 'DC' || type === 'D1-REMOTEDISCONNECT') && status === 'COMINPROG') {
+    console.log('→ Returning: DC In Progress');
     return 'DC In Progress';
   }
   // Handle discarded commands
   else if (status === 'DISCARDED') {
+    console.log('→ Returning: Discarded');
     return 'Discarded';
   }
 
+  console.log('→ Returning: Unknown');
   return 'Unknown';
 };
 
