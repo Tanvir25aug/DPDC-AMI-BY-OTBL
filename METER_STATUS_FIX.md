@@ -86,14 +86,17 @@ If you've cleared the cache and it's still not working, check:
 
 ## Expected Behavior
 
-### Correct Display
-| Command Type | Command Status | Meter Status (Correct) |
-|--------------|----------------|------------------------|
-| DC | COMPLETED | **Disconnected** |
-| RC | COMPLETED | **Connected** |
-| DC | COMINPROG | **DC In Progress** |
-| RC | COMINPROG | **RC In Progress** |
-| Any | DISCARDED | **Discarded** |
+### Correct Display (Priority Order)
+| Priority | Command Type | Command Status | Meter Status (Correct) |
+|----------|--------------|----------------|------------------------|
+| **1st** | **Any** | **DISCARDED** | **Discarded** ✅ |
+| 2nd | RC | COMPLETED | **Connected** ✅ |
+| 3rd | DC | COMPLETED | **Disconnected** ✅ |
+| 4th | RC | COMINPROG | **RC In Progress** ✅ |
+| 5th | DC | COMINPROG | **DC In Progress** ✅ |
+
+**Important**: DISCARDED status is checked FIRST (v2.1+).
+This ensures discarded commands always show "Discarded" meter status.
 
 ## Technical Details
 
