@@ -591,7 +591,10 @@
 
                     <!-- Command Type -->
                     <td class="px-4 py-3 text-sm">
-                      <span v-if="meter.COMMAND_TYPE === 'D1-RemoteConnect'" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-success/10 text-success border border-success/20">
+                      <span
+                        v-if="meter.COMMAND_TYPE?.trim().toUpperCase() === 'RC' || meter.COMMAND_TYPE?.trim().toUpperCase() === 'D1-REMOTECONNECT'"
+                        class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-success/10 text-success border border-success/20"
+                      >
                         RC
                       </span>
                       <span v-else class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-info/10 text-info border border-info/20">
@@ -601,10 +604,10 @@
 
                     <!-- Command Status -->
                     <td class="px-4 py-3 text-sm">
-                      <span v-if="meter.COMMAND_STATUS === 'COMPLETED'" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-success/10 text-success border border-success/20">
+                      <span v-if="meter.COMMAND_STATUS?.trim().toUpperCase() === 'COMPLETED'" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-success/10 text-success border border-success/20">
                         Completed
                       </span>
-                      <span v-else-if="meter.COMMAND_STATUS === 'COMINPROG'" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-warning/10 text-warning border border-warning/20">
+                      <span v-else-if="meter.COMMAND_STATUS?.trim().toUpperCase() === 'COMINPROG'" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-warning/10 text-warning border border-warning/20">
                         In Progress
                       </span>
                       <span v-else class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-error/10 text-error border border-error/20">
