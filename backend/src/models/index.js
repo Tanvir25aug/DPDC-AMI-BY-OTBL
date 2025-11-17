@@ -2,6 +2,9 @@ const sequelize = require('../config/database');
 const User = require('./User');
 const Role = require('./Role');
 const QueryLog = require('./QueryLog');
+const LoginHistory = require('./LoginHistory');
+const UserSession = require('./UserSession');
+const UserActivity = require('./UserActivity');
 
 // Define associations
 User.belongsTo(Role, {
@@ -24,9 +27,45 @@ User.hasMany(QueryLog, {
   as: 'query_logs'
 });
 
+// LoginHistory associations
+LoginHistory.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+User.hasMany(LoginHistory, {
+  foreignKey: 'user_id',
+  as: 'login_history'
+});
+
+// UserSession associations
+UserSession.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+User.hasMany(UserSession, {
+  foreignKey: 'user_id',
+  as: 'sessions'
+});
+
+// UserActivity associations
+UserActivity.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
+
+User.hasMany(UserActivity, {
+  foreignKey: 'user_id',
+  as: 'activities'
+});
+
 module.exports = {
   sequelize,
   User,
   Role,
-  QueryLog
+  QueryLog,
+  LoginHistory,
+  UserSession,
+  UserActivity
 };

@@ -16,7 +16,17 @@
       "Bash(del:*)",
       "Bash(git init:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git branch:*)",
+      "Bash(npx sequelize-cli db:migrate)",
+      "Bash(npx sequelize-cli:*)",
+      "Bash(node -e:*)",
+      "Bash(psql:*)",
+      "Bash(node:*)",
+      "Bash(cat:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

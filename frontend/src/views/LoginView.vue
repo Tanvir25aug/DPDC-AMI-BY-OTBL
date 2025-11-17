@@ -2,14 +2,16 @@
   <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 p-4 relative overflow-hidden">
     <!-- Animated Background Elements -->
     <div class="absolute inset-0 overflow-hidden">
-      <div class="absolute -top-1/2 -left-1/2 w-full h-full bg-white/5 rounded-full blur-3xl animate-pulse"></div>
-      <div class="absolute -bottom-1/2 -right-1/2 w-full h-full bg-white/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      <div class="absolute -top-1/2 -left-1/2 w-full h-full bg-white/5 rounded-full blur-3xl animate-float"></div>
+      <div class="absolute -bottom-1/2 -right-1/2 w-full h-full bg-white/5 rounded-full blur-3xl animate-float-delayed"></div>
+      <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-400/10 rounded-full blur-2xl animate-pulse"></div>
+      <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse"></div>
     </div>
 
     <!-- Login Card -->
-    <div class="relative w-full max-w-md">
+    <div class="relative w-full max-w-md animate-slide-up">
       <!-- Glass Card -->
-      <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-10 transform transition-all duration-500 hover:scale-[1.02]">
+      <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-10 border border-white/20 transform transition-all duration-500 hover:shadow-3xl">
         <!-- Logo and Title Section -->
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-4 shadow-lg transform transition-transform hover:rotate-6">
@@ -17,10 +19,16 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 animate-gradient">
             DPDC AMI System
           </h1>
-          <p class="text-gray-600 text-sm">Oracle Reporting System by OTBL</p>
+          <p class="text-gray-600 text-sm">Oracle Utilities Customer To Meter Reporting System by OTBL</p>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div class="mb-6 flex justify-center gap-2">
+          <div :class="['h-1 w-12 rounded-full transition-all duration-300', credentials.username ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gray-200']"></div>
+          <div :class="['h-1 w-12 rounded-full transition-all duration-300', credentials.password ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-200']"></div>
         </div>
 
         <!-- Login Form -->
@@ -40,10 +48,12 @@
                 id="username"
                 v-model="credentials.username"
                 type="text"
-                class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                class="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-300 transition-all duration-300 bg-gray-50 focus:bg-white focus:shadow-lg transform focus:scale-[1.01]"
                 placeholder="Enter your username"
                 required
                 autofocus
+                @focus="focusedField = 'username'"
+                @blur="focusedField = null"
               />
             </div>
           </div>
@@ -63,9 +73,11 @@
                 id="password"
                 v-model="credentials.password"
                 :type="showPassword ? 'text' : 'password'"
-                class="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                class="block w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-300 transition-all duration-300 bg-gray-50 focus:bg-white focus:shadow-lg transform focus:scale-[1.01]"
                 placeholder="Enter your password"
                 required
+                @focus="focusedField = 'password'"
+                @blur="focusedField = null"
               />
               <button
                 type="button"
@@ -81,6 +93,24 @@
                 </svg>
               </button>
             </div>
+          </div>
+
+          <!-- Remember Me & Forgot Password -->
+          <div class="flex items-center justify-between text-sm">
+            <label class="flex items-center gap-2 cursor-pointer group">
+              <input
+                v-model="rememberMe"
+                type="checkbox"
+                class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all"
+              />
+              <span class="text-gray-700 group-hover:text-indigo-600 transition-colors">Remember me</span>
+            </label>
+            <button
+              type="button"
+              class="text-indigo-600 hover:text-indigo-800 font-medium hover:underline transition-all"
+            >
+              Forgot password?
+            </button>
           </div>
 
           <!-- Error Message -->
@@ -99,14 +129,20 @@
           <!-- Login Button -->
           <button
             type="submit"
-            :disabled="loading"
-            class="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+            :disabled="loading || !credentials.username || !credentials.password"
+            class="group relative w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-2xl transform transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 overflow-hidden"
           >
-            <svg v-if="loading" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>{{ loading ? 'Signing In...' : 'Sign In' }}</span>
+            <div class="absolute inset-0 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div class="relative flex items-center gap-2">
+              <svg v-if="loading" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <svg v-else class="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              <span>{{ loading ? 'Signing In...' : 'Sign In' }}</span>
+            </div>
           </button>
         </form>
 
@@ -142,6 +178,8 @@ const credentials = ref({
 const loading = ref(false);
 const error = ref(null);
 const showPassword = ref(false);
+const rememberMe = ref(false);
+const focusedField = ref(null);
 
 const handleLogin = async () => {
   loading.value = true;
@@ -167,8 +205,53 @@ const handleLogin = async () => {
   20%, 40%, 60%, 80% { transform: translateX(4px); }
 }
 
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
+
+@keyframes float-delayed {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-30px, 30px) scale(1.1); }
+  66% { transform: translate(20px, -20px) scale(0.9); }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
 .animate-shake {
   animation: shake 0.5s ease-in-out;
+}
+
+.animate-float {
+  animation: float 20s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 25s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out;
+}
+
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient 3s ease infinite;
 }
 
 .delay-1000 {
