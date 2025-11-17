@@ -122,88 +122,16 @@
       </div>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card card">
-        <h3>Total Queries</h3>
-        <p class="stat-value">{{ stats?.overall?.total_queries || 0 }}</p>
-      </div>
-
-      <div class="stat-card card">
-        <h3>Avg Execution Time</h3>
-        <p class="stat-value">{{ formatTime(stats?.overall?.avg_execution_time) }}</p>
-      </div>
-
-      <div class="stat-card card">
-        <h3>Total Rows</h3>
-        <p class="stat-value">{{ formatNumber(stats?.overall?.total_rows_returned) }}</p>
-      </div>
-
-      <div class="stat-card card">
-        <h3>Max Execution Time</h3>
-        <p class="stat-value">{{ formatTime(stats?.overall?.max_execution_time) }}</p>
-      </div>
-    </div>
-
-    <div class="quick-actions card">
-      <h2>Quick Actions</h2>
-      <div class="action-buttons">
-        <router-link to="/reports" class="btn btn-primary">
-          Create New Report
-        </router-link>
-        <router-link to="/query-history" class="btn btn-secondary">
-          View Query History
-        </router-link>
-        <router-link v-if="authStore.hasPermission('can_manage_users')" to="/admin" class="btn btn-success">
-          Manage Users
-        </router-link>
-      </div>
-    </div>
-
-    <div class="recent-queries card">
-      <h2>Recent Queries</h2>
-      <div v-if="loading" class="loading">Loading...</div>
-      <div v-else-if="recentQueries.length === 0" class="no-data">
-        No queries executed yet
-      </div>
-      <table v-else class="table">
-        <thead>
-          <tr>
-            <th>Query</th>
-            <th>Status</th>
-            <th>Execution Time</th>
-            <th>Rows</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="query in recentQueries" :key="query.id">
-            <td class="query-text">{{ truncateQuery(query.query_text) }}</td>
-            <td>
-              <span :class="['status-badge', query.status]">{{ query.status }}</span>
-            </td>
-            <td>{{ query.execution_time }}ms</td>
-            <td>{{ query.rows_returned }}</td>
-            <td>{{ formatDate(query.executed_at) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { useQueryStore } from '@/stores/query';
 import { useReportsStore } from '@/stores/reports';
 
 const authStore = useAuthStore();
-const queryStore = useQueryStore();
 const reportsStore = useReportsStore();
-
-const stats = ref(null);
-const recentQueries = ref([]);
-const loading = ref(false);
 
 // Get RC/DC data from reports store
 const rcdcAnalytics = computed(() => reportsStore.analytics);
@@ -224,47 +152,17 @@ const getBarWidth = (value) => {
   return `${(value / maxNocsValue.value) * 100}%`;
 };
 
-onMounted(async () => {
-  loading.value = true;
-
-  // Fetch RC/DC data
-  await reportsStore.fetchDashboardStats();
-  await reportsStore.fetchNocsData();
-
-  // Fetch query statistics
-  const statsResult = await queryStore.fetchStatistics();
-  if (statsResult.success) {
-    stats.value = statsResult.data;
-  }
-
-  // Fetch recent queries
-  const historyResult = await queryStore.fetchQueryHistory({ limit: 5 });
-  if (historyResult.success) {
-    recentQueries.value = historyResult.data;
-  }
-
-  loading.value = false;
-});
-
+// Format date for last login
 const formatDate = (date) => {
   if (!date) return 'N/A';
   return new Date(date).toLocaleString();
 };
 
-const formatTime = (time) => {
-  if (!time) return '0ms';
-  return Math.round(time) + 'ms';
-};
-
-const formatNumber = (num) => {
-  if (!num) return '0';
-  return num.toLocaleString();
-};
-
-const truncateQuery = (query) => {
-  if (!query) return '';
-  return query.length > 80 ? query.substring(0, 80) + '...' : query;
-};
+onMounted(async () => {
+  // Fetch RC/DC data
+  await reportsStore.fetchDashboardStats();
+  await reportsStore.fetchNocsData();
+});
 </script>
 
 <style scoped>
@@ -290,70 +188,6 @@ h1 {
 .welcome-card p {
   margin: 5px 0;
   color: #7f8c8d;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.stat-card {
-  text-align: center;
-  padding: 30px 20px;
-}
-
-.stat-card h3 {
-  color: #7f8c8d;
-  font-size: 14px;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-.quick-actions h2 {
-  margin-bottom: 20px;
-  color: #2c3e50;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.recent-queries h2 {
-  margin-bottom: 20px;
-  color: #2c3e50;
-}
-
-.query-text {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  max-width: 400px;
-}
-
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.status-badge.success {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.status-badge.error {
-  background-color: #f8d7da;
-  color: #721c24;
 }
 
 .no-data {
