@@ -218,6 +218,72 @@ class OracleService {
       byStatus: statusStats
     };
   }
+
+  /**
+   * Get list of all NOCS names
+   */
+  async getNocsList() {
+    const fs = require('fs');
+    const path = require('path');
+
+    try {
+      const sqlPath = path.join(__dirname, '../../reports/nocs_list.sql');
+      const query = fs.readFileSync(sqlPath, 'utf8');
+
+      logger.info('Fetching NOCS list');
+
+      const result = await executeQuery(query);
+
+      logger.info(`NOCS list fetched: ${result.rows.length} locations`);
+
+      return result.rows;
+    } catch (error) {
+      logger.error('Error fetching NOCS list', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get due summary for a specific NOCS
+   */
+  async getNocsDueSummary(nocsName) {
+    const fs = require('fs');
+    const path = require('path');
+
+    try {
+      const sqlPath = path.join(__dirname, '../../reports/nocs_due_summary.sql');
+      let query = fs.readFileSync(sqlPath, 'utf8');
+
+      // Replace bind variable with actual value
+      query = query.replace(/:nocsName/g, `'${nocsName.replace(/'/g, "''")}'`);
+
+      logger.info(`Fetching due summary for NOCS: ${nocsName}`);
+
+      const startTime = Date.now();
+      const result = await executeQuery(query);
+      const executionTime = Date.now() - startTime;
+
+      logger.info(`Due summary fetched for ${nocsName} in ${executionTime}ms`);
+
+      // Return the first row (aggregated data)
+      return result.rows[0] || {
+        NOCS_NAME: nocsName,
+        TOTAL_ACCOUNTS: 0,
+        ACCOUNTS_WITH_DUE: 0,
+        ACCOUNTS_WITH_CREDIT: 0,
+        ACCOUNTS_ZERO_BALANCE: 0,
+        TOTAL_DUE: 0,
+        TOTAL_CREDIT: 0,
+        NET_BALANCE: 0,
+        AVG_DUE_PER_ACCOUNT: 0,
+        MAX_DUE: 0,
+        MAX_CREDIT: 0
+      };
+    } catch (error) {
+      logger.error(`Error fetching due summary for ${nocsName}`, { error: error.message });
+      throw error;
+    }
+  }
 }
 
 module.exports = new OracleService();

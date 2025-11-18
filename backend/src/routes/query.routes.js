@@ -80,4 +80,26 @@ router.get(
   queryController.testConnection
 );
 
+/**
+ * @route   GET /api/queries/nocs-list
+ * @desc    Get list of all NOCS names
+ * @access  Private
+ */
+router.get(
+  '/nocs-list',
+  authenticate,
+  queryController.getNocsList
+);
+
+/**
+ * @route   GET /api/queries/nocs-due-summary/:nocsName
+ * @desc    Get due summary for a specific NOCS
+ * @access  Private
+ */
+router.get(
+  '/nocs-due-summary/:nocsName',
+  authenticate,
+  queryController.getNocsDueSummary
+);
+
 module.exports = router;

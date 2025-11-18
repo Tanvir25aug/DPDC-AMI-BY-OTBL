@@ -40,6 +40,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/nocs-due-summary',
+      name: 'nocs-due-summary',
+      component: () => import('@/views/NocsDueSummaryView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/query-history',
       name: 'query-history',
       component: () => import('@/views/QueryHistoryView.vue'),

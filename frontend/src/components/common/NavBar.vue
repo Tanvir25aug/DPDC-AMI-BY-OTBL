@@ -12,6 +12,9 @@
         <router-link to="/reports" class="nav-link">
           Reports
         </router-link>
+        <router-link to="/nocs-due-summary" class="nav-link">
+          NOCS Due
+        </router-link>
         <router-link to="/query-history" class="nav-link">
           History
         </router-link>

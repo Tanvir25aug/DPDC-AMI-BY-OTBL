@@ -143,6 +143,54 @@ class QueryController {
       next(error);
     }
   }
+
+  /**
+   * Get list of all NOCS names
+   */
+  async getNocsList(req, res, next) {
+    try {
+      logger.info('Fetching NOCS list', { userId: req.user?.id });
+
+      const nocsList = await oracleService.getNocsList();
+
+      res.json({
+        success: true,
+        data: nocsList,
+        count: nocsList.length
+      });
+    } catch (error) {
+      logger.error('Error fetching NOCS list', { error: error.message });
+      next(error);
+    }
+  }
+
+  /**
+   * Get due summary for a specific NOCS
+   */
+  async getNocsDueSummary(req, res, next) {
+    try {
+      const { nocsName } = req.params;
+
+      if (!nocsName) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'NOCS name is required'
+        });
+      }
+
+      logger.info('Fetching NOCS due summary', { nocsName, userId: req.user?.id });
+
+      const summary = await oracleService.getNocsDueSummary(nocsName);
+
+      res.json({
+        success: true,
+        data: summary
+      });
+    } catch (error) {
+      logger.error('Error fetching NOCS due summary', { error: error.message });
+      next(error);
+    }
+  }
 }
 
 module.exports = new QueryController();
