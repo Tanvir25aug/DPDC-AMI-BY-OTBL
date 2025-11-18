@@ -2,17 +2,17 @@
 -- Parameter: :nocsName
 
 SELECT
-    l.descr AS NOCS_NAME,
-    COUNT(DISTINCT a.acct_id) AS TOTAL_ACCOUNTS,
-    COUNT(DISTINCT CASE WHEN total_balance > 0 THEN a.acct_id END) AS ACCOUNTS_WITH_DUE,
-    COUNT(DISTINCT CASE WHEN total_balance < 0 THEN a.acct_id END) AS ACCOUNTS_WITH_CREDIT,
-    COUNT(DISTINCT CASE WHEN total_balance = 0 THEN a.acct_id END) AS ACCOUNTS_ZERO_BALANCE,
-    SUM(CASE WHEN total_balance > 0 THEN total_balance ELSE 0 END) AS TOTAL_DUE,
-    SUM(CASE WHEN total_balance < 0 THEN total_balance ELSE 0 END) AS TOTAL_CREDIT,
-    SUM(total_balance) AS NET_BALANCE,
-    AVG(CASE WHEN total_balance > 0 THEN total_balance END) AS AVG_DUE_PER_ACCOUNT,
-    MAX(CASE WHEN total_balance > 0 THEN total_balance END) AS MAX_DUE,
-    MIN(CASE WHEN total_balance < 0 THEN total_balance END) AS MAX_CREDIT
+    account_balances.descr AS NOCS_NAME,
+    COUNT(DISTINCT account_balances.acct_id) AS TOTAL_ACCOUNTS,
+    COUNT(DISTINCT CASE WHEN account_balances.total_balance > 0 THEN account_balances.acct_id END) AS ACCOUNTS_WITH_DUE,
+    COUNT(DISTINCT CASE WHEN account_balances.total_balance < 0 THEN account_balances.acct_id END) AS ACCOUNTS_WITH_CREDIT,
+    COUNT(DISTINCT CASE WHEN account_balances.total_balance = 0 THEN account_balances.acct_id END) AS ACCOUNTS_ZERO_BALANCE,
+    SUM(CASE WHEN account_balances.total_balance > 0 THEN account_balances.total_balance ELSE 0 END) AS TOTAL_DUE,
+    SUM(CASE WHEN account_balances.total_balance < 0 THEN account_balances.total_balance ELSE 0 END) AS TOTAL_CREDIT,
+    SUM(account_balances.total_balance) AS NET_BALANCE,
+    AVG(CASE WHEN account_balances.total_balance > 0 THEN account_balances.total_balance END) AS AVG_DUE_PER_ACCOUNT,
+    MAX(CASE WHEN account_balances.total_balance > 0 THEN account_balances.total_balance END) AS MAX_DUE,
+    MIN(CASE WHEN account_balances.total_balance < 0 THEN account_balances.total_balance END) AS MAX_CREDIT
 FROM (
     SELECT
         a.acct_id,
@@ -45,4 +45,4 @@ FROM (
         a.acct_id, l.descr
 ) account_balances
 GROUP BY
-    l.descr
+    account_balances.descr
