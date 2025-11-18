@@ -171,7 +171,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '@/services/api';
 
 const loading = ref(false);
 const loadingMessage = ref('');
@@ -216,7 +216,7 @@ const loadData = async () => {
   try {
     // Step 1: Fetch NOCS list
     loadingMessage.value = 'Fetching NOCS list...';
-    const nocsResponse = await axios.get('/api/queries/nocs-list');
+    const nocsResponse = await api.get('/queries/nocs-list');
     nocsList.value = nocsResponse.data.data;
 
     if (!nocsList.value || nocsList.value.length === 0) {
@@ -231,7 +231,7 @@ const loadData = async () => {
       loadingMessage.value = `Loading ${nocs.NOCS_NAME} (${i + 1}/${totalNocs})...`;
 
       try {
-        const summaryResponse = await axios.get(`/api/queries/nocs-due-summary/${encodeURIComponent(nocs.NOCS_NAME)}`);
+        const summaryResponse = await api.get(`/queries/nocs-due-summary/${encodeURIComponent(nocs.NOCS_NAME)}`);
         summaries.value.push(summaryResponse.data.data);
       } catch (err) {
         console.error(`Error fetching summary for ${nocs.NOCS_NAME}:`, err);

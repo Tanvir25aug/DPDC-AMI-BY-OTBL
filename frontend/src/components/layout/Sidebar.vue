@@ -131,6 +131,7 @@ import {
   ChevronRightIcon,
   BoltIcon,
   TableCellsIcon,
+  CurrencyDollarIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -166,6 +167,11 @@ const navItems = [
     path: '/meter-wise-report',
     label: 'Meter Report',
     icon: TableCellsIcon,
+  },
+  {
+    path: '/nocs-due-summary',
+    label: 'NOCS Due Summary',
+    icon: CurrencyDollarIcon,
   },
   {
     path: '/reports',
