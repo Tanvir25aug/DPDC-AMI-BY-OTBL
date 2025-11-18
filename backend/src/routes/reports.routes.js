@@ -15,8 +15,11 @@ router.get('/rc_dc_nocs_aggregated', reportsController.getRCDCNocsAggregated);
 // Get RC/DC analytics summary (detailed transactions)
 router.get('/rc_dc_analytics_summary', reportsController.getRCDCAnalyticsSummary);
 
-// Get meter-wise commands (detailed meter list)
+// Get meter-wise commands (detailed meter list) - DEPRECATED
 router.get('/meter_wise_commands', reportsController.getMeterWiseCommands);
+
+// Get meter-wise commands PAGINATED (OPTIMIZED for 200+ users, 30k+ records)
+router.get('/meter_wise_commands_paginated', reportsController.getMeterWiseCommandsPaginated);
 
 // Get meter-wise commands by NOCS (filtered meter list for specific NOCS)
 router.get('/meter_wise_commands_by_nocs', reportsController.getMeterWiseCommandsByNocs);

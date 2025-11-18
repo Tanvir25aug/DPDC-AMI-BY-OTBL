@@ -33,11 +33,23 @@ export const reportsAPI = {
   },
 
   /**
-   * Get Meter-wise Commands
+   * Get Meter-wise Commands (DEPRECATED - Use paginated version)
    * Returns detailed list of meter commands
    */
   getMeterWiseCommands() {
     return api.get('/reports/meter_wise_commands');
+  },
+
+  /**
+   * Get Meter-wise Commands PAGINATED (OPTIMIZED for 30k+ records)
+   * Returns paginated list of meter commands with caching
+   * @param {number} page - Page number (1-indexed)
+   * @param {number} limit - Items per page (default: 100, max: 1000)
+   */
+  getMeterWiseCommandsPaginated(page = 1, limit = 100) {
+    return api.get('/reports/meter_wise_commands_paginated', {
+      params: { page, limit }
+    });
   },
 
   /**

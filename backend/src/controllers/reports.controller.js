@@ -1,6 +1,7 @@
 const reportsService = require('../services/reports.service');
 const realtimeService = require('../services/realtime.service');
 const pdfService = require('../services/pdf.service');
+const cacheService = require('../services/cache.service');
 
 /**
  * Get RC/DC analytics summary
@@ -28,7 +29,7 @@ const getRCDCAnalyticsSummary = async (req, res) => {
 };
 
 /**
- * Get meter-wise commands
+ * Get meter-wise commands (DEPRECATED - Use getMeterWiseCommandsPaginated instead)
  * Returns detailed list of meter commands for today
  */
 const getMeterWiseCommands = async (req, res) => {
@@ -43,6 +44,79 @@ const getMeterWiseCommands = async (req, res) => {
     });
   } catch (error) {
     console.error('[Reports Controller] Error in getMeterWiseCommands:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch meter-wise commands',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get meter-wise commands with PAGINATION and CACHING
+ * Optimized for 200+ concurrent users and 30k+ records
+ * @param {number} page - Page number (default: 1)
+ * @param {number} limit - Items per page (default: 100, max: 1000)
+ */
+const getMeterWiseCommandsPaginated = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 100, 1000); // Max 1000 per page
+
+    // Check cache first
+    const cacheKey = `meter_commands:page:${page}:limit:${limit}`;
+    const cached = cacheService.get(cacheKey);
+
+    if (cached) {
+      console.log(`[Reports Controller] Returning cached data for page ${page}`);
+      return res.json({
+        success: true,
+        ...cached,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Get total count (with caching)
+    const countCacheKey = 'meter_commands:total_count';
+    let totalCount = cacheService.get(countCacheKey);
+
+    if (!totalCount) {
+      totalCount = await reportsService.getReportCount('meter_wise_commands_count');
+      cacheService.set(countCacheKey, totalCount, 2 * 60 * 1000); // Cache count for 2 minutes
+    }
+
+    // Get paginated data
+    const result = await reportsService.executeReportPaginated(
+      'meter_wise_commands_paginated',
+      page,
+      limit
+    );
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    const response = {
+      success: true,
+      data: result.data,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      },
+      cached: false,
+      timestamp: new Date().toISOString()
+    };
+
+    // Cache this page for 3 minutes
+    cacheService.set(cacheKey, response, 3 * 60 * 1000);
+
+    res.json(response);
+  } catch (error) {
+    console.error('[Reports Controller] Error in getMeterWiseCommandsPaginated:', error);
 
     res.status(500).json({
       success: false,
@@ -324,6 +398,7 @@ const downloadNocsReportPDF = async (req, res) => {
 module.exports = {
   getRCDCAnalyticsSummary,
   getMeterWiseCommands,
+  getMeterWiseCommandsPaginated, // NEW: Optimized paginated endpoint
   getMeterWiseCommandsByNocs,
   getDailyConnectDisconnectCount,
   getRCDCNocsAggregated,
