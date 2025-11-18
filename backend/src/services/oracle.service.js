@@ -252,15 +252,13 @@ class OracleService {
 
     try {
       const sqlPath = path.join(__dirname, '../../reports/nocs_due_summary.sql');
-      let query = fs.readFileSync(sqlPath, 'utf8');
-
-      // Replace bind variable with actual value
-      query = query.replace(/:nocsName/g, `'${nocsName.replace(/'/g, "''")}'`);
+      const query = fs.readFileSync(sqlPath, 'utf8');
 
       logger.info(`Fetching due summary for NOCS: ${nocsName}`);
 
       const startTime = Date.now();
-      const result = await executeQuery(query);
+      // Use proper Oracle bind variables instead of string replacement
+      const result = await executeQuery(query, { nocsName: nocsName });
       const executionTime = Date.now() - startTime;
 
       logger.info(`Due summary fetched for ${nocsName} in ${executionTime}ms`);
@@ -280,7 +278,7 @@ class OracleService {
         MAX_CREDIT: 0
       };
     } catch (error) {
-      logger.error(`Error fetching due summary for ${nocsName}`, { error: error.message });
+      logger.error(`Error fetching due summary for ${nocsName}`, { error: error.message, stack: error.stack });
       throw error;
     }
   }

@@ -2,7 +2,7 @@
 -- Parameter: :nocsName
 
 SELECT
-    :nocsName AS NOCS_NAME,
+    l.descr AS NOCS_NAME,
     COUNT(DISTINCT a.acct_id) AS TOTAL_ACCOUNTS,
     COUNT(DISTINCT CASE WHEN total_balance > 0 THEN a.acct_id END) AS ACCOUNTS_WITH_DUE,
     COUNT(DISTINCT CASE WHEN total_balance < 0 THEN a.acct_id END) AS ACCOUNTS_WITH_CREDIT,
@@ -16,6 +16,7 @@ SELECT
 FROM (
     SELECT
         a.acct_id,
+        l.descr,
         SUM(ft.tot_amt) AS total_balance
     FROM
         ci_acct a
@@ -41,7 +42,7 @@ FROM (
         AND p.char_type_cd = 'CM_NOCS'
         AND l.descr = :nocsName
     GROUP BY
-        a.acct_id
+        a.acct_id, l.descr
 ) account_balances
 GROUP BY
-    :nocsName
+    l.descr
