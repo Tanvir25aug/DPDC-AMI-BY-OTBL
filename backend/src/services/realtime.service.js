@@ -5,14 +5,14 @@ class RealtimeService {
   constructor() {
     this.isPolling = false;
     this.pollingInterval = null;
-    this.updateInterval = 300000; // 5 minutes default
+    this.updateInterval = 600000; // 10 minutes default
     this.lastDataHash = null;
   }
 
   /**
    * Start polling for data changes and broadcast to clients
    */
-  startPolling(intervalMs = 300000) { // Default 5 minutes (300000ms)
+  startPolling(intervalMs = 600000) { // Default 10 minutes (600000ms)
     if (this.isPolling) {
       logger.warn('[Realtime] Polling already active');
       return;

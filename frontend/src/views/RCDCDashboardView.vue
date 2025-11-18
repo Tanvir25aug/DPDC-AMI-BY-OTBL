@@ -33,7 +33,7 @@
                       {{ isRealtimeConnected ? 'Live' : 'Paused' }}
                     </span>
                     <span v-if="isRealtimeEnabled" class="text-xs text-white/70">
-                      Updates every 5 min
+                      Updates every 10 min
                     </span>
                   </div>
                 </div>
