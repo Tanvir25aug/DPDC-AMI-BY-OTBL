@@ -46,6 +46,18 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/rc-in-progress',
+      name: 'rc-in-progress',
+      component: () => import('@/views/RCInProgressDetailedView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/ami-operational',
+      name: 'ami-operational',
+      component: () => import('@/views/AMIOperationalView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/query-history',
       name: 'query-history',
       component: () => import('@/views/QueryHistoryView.vue'),

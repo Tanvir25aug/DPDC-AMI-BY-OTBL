@@ -132,6 +132,7 @@ import {
   BoltIcon,
   TableCellsIcon,
   CurrencyDollarIcon,
+  CpuChipIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -162,6 +163,16 @@ const navItems = [
     path: '/rc-dc-dashboard',
     label: 'RC/DC Monitor',
     icon: BoltIcon,
+  },
+  {
+    path: '/rc-in-progress',
+    label: 'RC In Progress',
+    icon: ClockIcon,
+  },
+  {
+    path: '/ami-operational',
+    label: 'AMI Operational',
+    icon: CpuChipIcon,
   },
   {
     path: '/meter-wise-report',
