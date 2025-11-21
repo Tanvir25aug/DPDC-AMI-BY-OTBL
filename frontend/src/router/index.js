@@ -39,12 +39,13 @@ const router = createRouter({
       component: () => import('@/views/MeterWiseReportView.vue'),
       meta: { requiresAuth: true }
     },
-    {
-      path: '/nocs-due-summary',
-      name: 'nocs-due-summary',
-      component: () => import('@/views/NocsDueSummaryView.vue'),
-      meta: { requiresAuth: true }
-    },
+    // Temporarily disabled - will be updated later
+    // {
+    //   path: '/nocs-due-summary',
+    //   name: 'nocs-due-summary',
+    //   component: () => import('@/views/NocsDueSummaryView.vue'),
+    //   meta: { requiresAuth: true }
+    // },
     {
       path: '/rc-in-progress',
       name: 'rc-in-progress',

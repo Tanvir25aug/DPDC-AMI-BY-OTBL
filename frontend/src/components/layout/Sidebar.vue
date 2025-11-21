@@ -179,11 +179,12 @@ const navItems = [
     label: 'Meter Report',
     icon: TableCellsIcon,
   },
-  {
-    path: '/nocs-due-summary',
-    label: 'NOCS Due Summary',
-    icon: CurrencyDollarIcon,
-  },
+  // Temporarily disabled - will be updated later
+  // {
+  //   path: '/nocs-due-summary',
+  //   label: 'NOCS Due Summary',
+  //   icon: CurrencyDollarIcon,
+  // },
   {
     path: '/reports',
     label: 'Reports',
