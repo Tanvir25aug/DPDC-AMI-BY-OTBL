@@ -1,10 +1,12 @@
--- Get NOCS-wise due summary with corrected due/credit logic
+-- Get NOCS-wise due summary with raw TOT_AMT balance calculation
 -- Parameter: :nocsName
--- Logic: Payoff Balance = SUM(TOT_AMT) * (-1)
---   If Payoff Balance < 0: Customer has DUE (owes money)
---   If Payoff Balance > 0: Customer has CREDIT (advance payment)
+-- Logic: Use raw SUM(TOT_AMT) from ci_ft table
+--   Negative TOT_AMT = Customer has DUE (owes money)
+--   Positive TOT_AMT = Customer has CREDIT (advance payment)
+-- Optimization: Query-level hints only, no database changes
+-- Includes ALL transactions (no date filters)
 
-SELECT
+SELECT /*+ PARALLEL(4) */
     account_balances.descr AS NOCS_NAME,
     COUNT(DISTINCT account_balances.acct_id) AS TOTAL_ACCOUNTS,
     COUNT(DISTINCT CASE WHEN account_balances.total_balance < 0 THEN account_balances.acct_id END) AS ACCOUNTS_WITH_DUE,
@@ -17,10 +19,10 @@ SELECT
     MAX(CASE WHEN account_balances.total_balance < 0 THEN ABS(account_balances.total_balance) END) AS MAX_DUE,
     MAX(CASE WHEN account_balances.total_balance > 0 THEN account_balances.total_balance END) AS MAX_CREDIT
 FROM (
-    SELECT
+    SELECT /*+ PARALLEL(a,4) PARALLEL(xy,4) PARALLEL(b,4) PARALLEL(j,4) PARALLEL(pc,4) PARALLEL(vl,4) */
         a.acct_id,
         vl.descr,
-        SUM(j.TOT_AMT) * (-1) AS total_balance
+        SUM(j.TOT_AMT) AS total_balance
     FROM ci_acct a
     INNER JOIN ci_acct_char xy ON a.acct_id = xy.acct_id
         AND xy.char_type_cd = 'CM_MTDIS'
@@ -29,6 +31,7 @@ FROM (
         AND b.sa_type_cd = 'PPD'
         AND b.sa_status_flg = '20'
     INNER JOIN ci_ft j ON j.sa_id = b.sa_id
+        AND j.freeze_sw = 'Y'
     INNER JOIN ci_prem_char pc ON pc.prem_id = a.mailing_prem_id
         AND pc.char_type_cd = 'CM_NOCS'
     INNER JOIN ci_char_val_l vl ON vl.char_val = pc.char_val
