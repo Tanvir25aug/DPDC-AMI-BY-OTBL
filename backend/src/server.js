@@ -13,6 +13,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
+app.set('trust proxy', true); // Fix for X-Forwarded-For header behind Nginx
 const PORT = process.env.PORT || 3000;
 
 // Security middleware
