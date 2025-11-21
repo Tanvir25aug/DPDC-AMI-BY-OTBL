@@ -11,7 +11,8 @@ const apiLimiter = rateLimit({
     message: 'Too many requests from this IP, please try again later'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  trust: true // Trust proxy for X-Forwarded-For headers
 });
 
 /**
@@ -24,7 +25,8 @@ const authLimiter = rateLimit({
     error: 'Too Many Login Attempts',
     message: 'Too many login attempts, please try again after 15 minutes'
   },
-  skipSuccessfulRequests: true
+  skipSuccessfulRequests: true,
+  trust: true // Trust proxy for X-Forwarded-For headers
 });
 
 /**
@@ -36,7 +38,8 @@ const queryLimiter = rateLimit({
   message: {
     error: 'Query Rate Limit Exceeded',
     message: 'Too many queries, please slow down'
-  }
+  },
+  trust: true // Trust proxy for X-Forwarded-For headers
 });
 
 module.exports = {
