@@ -190,21 +190,22 @@ const navItems = [
     label: 'Reports',
     icon: DocumentTextIcon,
   },
-  {
-    path: '/bank-wise-collection',
-    label: 'Bank Collection',
-    icon: CurrencyDollarIcon,
-  },
-  {
-    path: '/bank-reconciliation',
-    label: 'Bank Reconciliation',
-    icon: DocumentTextIcon,
-  },
-  {
-    path: '/nocs-collection-summary',
-    label: 'NOCS Collection',
-    icon: CurrencyDollarIcon,
-  },
+  // Payment reports disabled - requires ci_pay tables access
+  // {
+  //   path: '/bank-wise-collection',
+  //   label: 'Bank Collection',
+  //   icon: CurrencyDollarIcon,
+  // },
+  // {
+  //   path: '/bank-reconciliation',
+  //   label: 'Bank Reconciliation',
+  //   icon: DocumentTextIcon,
+  // },
+  // {
+  //   path: '/nocs-collection-summary',
+  //   label: 'NOCS Collection',
+  //   icon: CurrencyDollarIcon,
+  // },
   {
     path: '/query-history',
     label: 'History',
