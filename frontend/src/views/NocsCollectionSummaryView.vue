@@ -137,7 +137,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '@/services/api';
 
 const startDate = ref('');
 const endDate = ref('');
@@ -189,7 +189,7 @@ const fetchData = async () => {
   error.value = null;
 
   try {
-    const response = await axios.get('/api/reports/nocs_collection_summary', {
+    const response = await api.get('/reports/nocs_collection_summary', {
       params: {
         startDate: formatDateForAPI(startDate.value),
         endDate: formatDateForAPI(endDate.value)

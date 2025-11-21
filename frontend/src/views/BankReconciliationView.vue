@@ -143,7 +143,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '@/services/api';
 
 const startDate = ref('');
 const endDate = ref('');
@@ -202,7 +202,7 @@ const fetchData = async () => {
       params.bankCode = bankCode.value;
     }
 
-    const response = await axios.get('/api/reports/bank_reconciliation_data', { params });
+    const response = await api.get('/reports/bank_reconciliation_data', { params });
     data.value = response.data.data || [];
   } catch (err) {
     error.value = err.response?.data?.message || 'Failed to fetch data';

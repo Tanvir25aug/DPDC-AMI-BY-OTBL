@@ -109,7 +109,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '@/services/api';
 
 const startDate = ref('');
 const endDate = ref('');
@@ -149,7 +149,7 @@ const fetchData = async () => {
   error.value = null;
 
   try {
-    const response = await axios.get('/api/reports/bank_wise_collection', {
+    const response = await api.get('/reports/bank_wise_collection', {
       params: {
         startDate: formatDateForAPI(startDate.value),
         endDate: formatDateForAPI(endDate.value)
