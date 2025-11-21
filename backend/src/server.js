@@ -13,7 +13,9 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
-app.set('trust proxy', true); // Fix for X-Forwarded-For header behind Nginx
+// Trust only the first proxy (Nginx) for X-Forwarded-For headers
+// This is more secure than 'trust proxy: true' which trusts all proxies
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Security middleware
