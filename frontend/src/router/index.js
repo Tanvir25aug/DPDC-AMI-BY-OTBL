@@ -65,6 +65,24 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/bank-wise-collection',
+      name: 'bank-wise-collection',
+      component: () => import('@/views/BankWiseCollectionView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/bank-reconciliation',
+      name: 'bank-reconciliation',
+      component: () => import('@/views/BankReconciliationView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/nocs-collection-summary',
+      name: 'nocs-collection-summary',
+      component: () => import('@/views/NocsCollectionSummaryView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: () => import('@/views/AdminView.vue'),

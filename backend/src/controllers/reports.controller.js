@@ -395,6 +395,124 @@ const downloadNocsReportPDF = async (req, res) => {
   }
 };
 
+/**
+ * Get Bank Wise Collection Report
+ * Returns collection summary grouped by bank/payment tender type
+ * Query parameters: startDate, endDate (format: DD-MON-YYYY)
+ */
+const getBankWiseCollection = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required (format: DD-MON-YYYY)'
+      });
+    }
+
+    const data = await reportsService.executeReport('bank_wise_collection', {
+      startDate,
+      endDate
+    });
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+      parameters: { startDate, endDate },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getBankWiseCollection:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bank-wise collection data',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get Bank Reconciliation Data
+ * Returns detailed payment transactions for bank reconciliation
+ * Query parameters: startDate, endDate, bankCode (optional)
+ */
+const getBankReconciliationData = async (req, res) => {
+  try {
+    const { startDate, endDate, bankCode } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required (format: DD-MON-YYYY)'
+      });
+    }
+
+    const data = await reportsService.executeReport('bank_reconciliation_data', {
+      startDate,
+      endDate,
+      bankCode: bankCode || null
+    });
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+      parameters: { startDate, endDate, bankCode: bankCode || 'All Banks' },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getBankReconciliationData:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bank reconciliation data',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get NOCS Collection Summary Report
+ * Returns collection summary grouped by NOCS area
+ * Query parameters: startDate, endDate (format: DD-MON-YYYY)
+ */
+const getNocsCollectionSummary = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'startDate and endDate are required (format: DD-MON-YYYY)'
+      });
+    }
+
+    const data = await reportsService.executeReport('nocs_collection_summary', {
+      startDate,
+      endDate
+    });
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+      parameters: { startDate, endDate },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getNocsCollectionSummary:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch NOCS collection summary',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getRCDCAnalyticsSummary,
   getMeterWiseCommands,
@@ -406,5 +524,8 @@ module.exports = {
   stopRealtime,
   getRealtimeStatus,
   broadcastNow,
-  downloadNocsReportPDF
+  downloadNocsReportPDF,
+  getBankWiseCollection,
+  getBankReconciliationData,
+  getNocsCollectionSummary
 };

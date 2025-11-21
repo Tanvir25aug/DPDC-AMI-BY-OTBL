@@ -191,6 +191,21 @@ const navItems = [
     icon: DocumentTextIcon,
   },
   {
+    path: '/bank-wise-collection',
+    label: 'Bank Collection',
+    icon: CurrencyDollarIcon,
+  },
+  {
+    path: '/bank-reconciliation',
+    label: 'Bank Reconciliation',
+    icon: DocumentTextIcon,
+  },
+  {
+    path: '/nocs-collection-summary',
+    label: 'NOCS Collection',
+    icon: CurrencyDollarIcon,
+  },
+  {
     path: '/query-history',
     label: 'History',
     icon: ClockIcon,

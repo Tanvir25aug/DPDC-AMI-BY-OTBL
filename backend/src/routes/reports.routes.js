@@ -33,4 +33,9 @@ router.post('/realtime/stop', reportsController.stopRealtime);
 router.get('/realtime/status', reportsController.getRealtimeStatus);
 router.post('/realtime/broadcast', reportsController.broadcastNow);
 
+// Payment Collection Reports
+router.get('/bank_wise_collection', reportsController.getBankWiseCollection);
+router.get('/bank_reconciliation_data', reportsController.getBankReconciliationData);
+router.get('/nocs_collection_summary', reportsController.getNocsCollectionSummary);
+
 module.exports = router;
