@@ -33,6 +33,7 @@ build/
 
 # Database
 *.sql
+!backend/reports/*.sql
 *.sqlite
 *.db
 
