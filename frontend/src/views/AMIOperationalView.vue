@@ -1,20 +1,20 @@
 <template>
-  <div class="ami-operational-view p-6">
+  <div class="ami-operational-view p-3 sm:p-4 md:p-6">
     <!-- Page Header -->
-    <div class="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 rounded-xl shadow-lg p-6 mb-6">
-      <div class="flex items-center justify-between">
+    <div class="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 rounded-xl shadow-lg p-4 md:p-6 mb-4 md:mb-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 class="text-2xl font-bold text-white">AMI Operational</h1>
-          <p class="text-teal-100 mt-1">Advanced Metering Infrastructure Operations</p>
+          <h1 class="text-xl md:text-2xl font-bold text-white">AMI Operational</h1>
+          <p class="text-teal-100 mt-1 text-sm md:text-base">Advanced Metering Infrastructure Operations</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <!-- Refresh Button -->
           <button
             @click="refreshAllData"
             :disabled="isLoadingAny"
-            class="btn bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
+            class="btn bg-white/20 hover:bg-white/30 text-white px-3 md:px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-sm md:text-base flex-1 sm:flex-initial justify-center"
           >
-            <ArrowPathIcon :class="['w-5 h-5', isLoadingAny ? 'animate-spin' : '']" />
+            <ArrowPathIcon :class="['w-4 h-4 md:w-5 md:h-5', isLoadingAny ? 'animate-spin' : '']" />
             <span class="font-medium">Refresh All</span>
           </button>
         </div>
@@ -164,25 +164,26 @@
           <PlayIcon class="w-10 h-10 text-gray-300 mx-auto mb-2" />
           <p class="text-gray-500">No batches currently running</p>
         </div>
-        <div v-else class="overflow-x-auto">
-          <table class="w-full">
+        <!-- Desktop Table View -->
+        <div class="hidden md:block table-responsive">
+          <table class="table-modern">
             <thead>
-              <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <th class="px-4 py-3">Batch Code</th>
-                <th class="px-4 py-3">Start Time</th>
-                <th class="px-4 py-3">Threads</th>
-                <th class="px-4 py-3">Records Processed</th>
-                <th class="px-4 py-3">Status</th>
+              <tr>
+                <th>Batch Code</th>
+                <th>Start Time</th>
+                <th>Threads</th>
+                <th>Records</th>
+                <th>Status</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
-              <tr v-for="batch in runningBatches" :key="batch.batchCode" class="hover:bg-gray-50">
-                <td class="px-4 py-3 font-medium text-gray-900">{{ batch.batchCode }}</td>
-                <td class="px-4 py-3 text-gray-600">{{ formatDateTime(batch.startTime) }}</td>
-                <td class="px-4 py-3 text-gray-600">{{ batch.threadCount }}</td>
-                <td class="px-4 py-3 text-gray-600">{{ (batch.totalRecords || 0).toLocaleString() }}</td>
-                <td class="px-4 py-3">
-                  <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full flex items-center gap-1 w-fit">
+            <tbody>
+              <tr v-for="batch in runningBatches" :key="batch.batchCode">
+                <td class="font-semibold">{{ batch.batchCode }}</td>
+                <td class="text-gray-600">{{ formatDateTime(batch.startTime) }}</td>
+                <td class="text-gray-600">{{ batch.threadCount }}</td>
+                <td class="text-gray-600">{{ (batch.totalRecords || 0).toLocaleString() }}</td>
+                <td>
+                  <span class="status-badge status-running">
                     <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                     Running
                   </span>
@@ -190,6 +191,35 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Mobile Card View -->
+        <div class="md:hidden space-y-3">
+          <div v-for="batch in runningBatches" :key="batch.batchCode" class="mobile-card">
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Batch Code</span>
+              <span class="mobile-card-value font-semibold">{{ batch.batchCode }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Start Time</span>
+              <span class="mobile-card-value text-xs">{{ formatDateTime(batch.startTime) }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Threads</span>
+              <span class="mobile-card-value">{{ batch.threadCount }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Records</span>
+              <span class="mobile-card-value">{{ (batch.totalRecords || 0).toLocaleString() }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Status</span>
+              <span class="status-badge status-running text-xs">
+                <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                Running
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -203,30 +233,30 @@
             Batch Job Performance
           </h2>
           <!-- Date Filters -->
-          <div class="flex items-center gap-3">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <div class="flex items-center gap-2">
-              <label class="text-white text-sm">From:</label>
+              <label class="text-white text-xs sm:text-sm whitespace-nowrap">From:</label>
               <input
                 type="date"
                 v-model="dateFilters.startDate"
-                class="px-3 py-1.5 rounded-lg text-sm border-0 focus:ring-2 focus:ring-white/50"
+                class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm border-0 focus:ring-2 focus:ring-white/50 flex-1 sm:flex-initial"
               />
             </div>
             <div class="flex items-center gap-2">
-              <label class="text-white text-sm">To:</label>
+              <label class="text-white text-xs sm:text-sm whitespace-nowrap">To:</label>
               <input
                 type="date"
                 v-model="dateFilters.endDate"
-                class="px-3 py-1.5 rounded-lg text-sm border-0 focus:ring-2 focus:ring-white/50"
+                class="px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm border-0 focus:ring-2 focus:ring-white/50 flex-1 sm:flex-initial"
               />
             </div>
             <button
               @click="loadBatchPerformance"
               :disabled="loadingStates.batchPerformance"
-              class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center gap-2 transition-colors text-sm"
+              class="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg flex items-center gap-2 justify-center transition-colors text-xs sm:text-sm"
             >
-              <PlayIcon v-if="!loadingStates.batchPerformance" class="w-4 h-4" />
-              <ArrowPathIcon v-else class="w-4 h-4 animate-spin" />
+              <PlayIcon v-if="!loadingStates.batchPerformance" class="w-3 h-3 sm:w-4 sm:h-4" />
+              <ArrowPathIcon v-else class="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
               {{ loadingStates.batchPerformance ? 'Loading...' : 'Load Data' }}
             </button>
           </div>
@@ -294,50 +324,88 @@
           <p class="text-gray-500">No batch data found for the selected filters</p>
         </div>
 
-        <div v-else class="overflow-x-auto">
-          <table class="w-full">
+        <!-- Desktop Table View -->
+        <div class="hidden md:block table-responsive">
+          <table class="table-modern">
             <thead>
-              <tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                <th class="px-4 py-3">Batch Code</th>
-                <th class="px-4 py-3">Status</th>
-                <th class="px-4 py-3">Business Date</th>
-                <th class="px-4 py-3">Start Time</th>
-                <th class="px-4 py-3">End Time</th>
-                <th class="px-4 py-3">Duration</th>
-                <th class="px-4 py-3">Threads</th>
-                <th class="px-4 py-3">Records</th>
-                <th class="px-4 py-3">RPS</th>
+              <tr>
+                <th>Batch Code</th>
+                <th>Status</th>
+                <th>Business Date</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Duration</th>
+                <th>Threads</th>
+                <th>Records</th>
+                <th>RPS</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200">
-              <tr
-                v-for="(batch, index) in filteredBatchPerformance"
-                :key="index"
-                class="hover:bg-gray-50"
-              >
-                <td class="px-4 py-3 font-medium text-gray-900">{{ batch.batchCode }}</td>
-                <td class="px-4 py-3">
-                  <span :class="getStatusClass(batch.statusCode)">
+            <tbody>
+              <tr v-for="(batch, index) in filteredBatchPerformance" :key="index">
+                <td class="font-semibold">{{ batch.batchCode }}</td>
+                <td>
+                  <span :class="getStatusClass(batch.statusCode)" class="status-badge">
                     {{ batch.status }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-gray-600">{{ formatDate(batch.businessDate) }}</td>
-                <td class="px-4 py-3 text-gray-600 text-sm">{{ formatDateTime(batch.startTime) }}</td>
-                <td class="px-4 py-3 text-gray-600 text-sm">{{ formatDateTime(batch.endTime) }}</td>
-                <td class="px-4 py-3 text-gray-600">
-                  <div>{{ batch.totalDuration.toLocaleString() }}s</div>
+                <td class="text-gray-600">{{ formatDate(batch.businessDate) }}</td>
+                <td class="text-gray-600 text-xs">{{ formatDateTime(batch.startTime) }}</td>
+                <td class="text-gray-600 text-xs">{{ formatDateTime(batch.endTime) }}</td>
+                <td class="text-gray-600">
+                  <div class="font-semibold">{{ batch.totalDuration.toLocaleString() }}s</div>
                   <div class="text-xs text-gray-400">{{ formatDurationHours(batch.totalDuration) }}</div>
                 </td>
-                <td class="px-4 py-3 text-gray-600">{{ batch.threadCount }}</td>
-                <td class="px-4 py-3 text-gray-600">{{ batch.totalRecords.toLocaleString() }}</td>
-                <td class="px-4 py-3">
-                  <span :class="getRpsClass(batch.rps)">
+                <td class="text-gray-600">{{ batch.threadCount }}</td>
+                <td class="text-gray-600">{{ batch.totalRecords.toLocaleString() }}</td>
+                <td>
+                  <span :class="getRpsClass(batch.rps)" class="font-semibold">
                     {{ batch.rps.toFixed(2) }}
                   </span>
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Mobile Card View -->
+        <div class="md:hidden space-y-3">
+          <div v-for="(batch, index) in filteredBatchPerformance" :key="index" class="mobile-card">
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Batch Code</span>
+              <span class="mobile-card-value font-semibold">{{ batch.batchCode }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Status</span>
+              <span :class="getStatusClass(batch.statusCode)" class="status-badge text-xs">
+                {{ batch.status }}
+              </span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Business Date</span>
+              <span class="mobile-card-value">{{ formatDate(batch.businessDate) }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Duration</span>
+              <span class="mobile-card-value">
+                <div class="font-semibold">{{ batch.totalDuration.toLocaleString() }}s</div>
+                <div class="text-xs text-gray-400">{{ formatDurationHours(batch.totalDuration) }}</div>
+              </span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Threads</span>
+              <span class="mobile-card-value">{{ batch.threadCount }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Records</span>
+              <span class="mobile-card-value">{{ batch.totalRecords.toLocaleString() }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">RPS</span>
+              <span :class="getRpsClass(batch.rps)" class="font-semibold">
+                {{ batch.rps.toFixed(2) }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

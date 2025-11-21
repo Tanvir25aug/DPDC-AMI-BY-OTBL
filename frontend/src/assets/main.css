@@ -259,6 +259,97 @@
     @apply bg-gray-50;
   }
 
+  /* ========== RESPONSIVE TABLE STYLES ========== */
+  .table-responsive {
+    @apply w-full overflow-x-auto rounded-lg border border-gray-200 shadow-sm;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-responsive::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .table-responsive::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded;
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
+  }
+
+  /* Mobile Card View for Tables */
+  .mobile-card {
+    @apply bg-white rounded-lg border border-gray-200 p-4 shadow-sm;
+    @apply hover:shadow-md transition-shadow duration-200;
+  }
+
+  .mobile-card-row {
+    @apply flex justify-between items-center py-2.5 border-b border-gray-100 last:border-0;
+  }
+
+  .mobile-card-label {
+    @apply text-xs font-semibold text-gray-500 uppercase tracking-wide;
+  }
+
+  .mobile-card-value {
+    @apply text-sm font-medium text-gray-900 text-right;
+  }
+
+  /* Enhanced Table Styles */
+  .table-modern {
+    @apply w-full border-collapse;
+  }
+
+  .table-modern thead {
+    @apply bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200;
+  }
+
+  .table-modern th {
+    @apply px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider;
+    white-space: nowrap;
+  }
+
+  .table-modern td {
+    @apply px-4 py-3 text-sm font-medium text-gray-900 border-b border-gray-100;
+  }
+
+  .table-modern tbody tr {
+    @apply hover:bg-blue-50/50 transition-all duration-150;
+  }
+
+  .table-modern tbody tr:hover {
+    @apply shadow-sm;
+  }
+
+  /* Status badges in tables */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .status-success {
+    @apply bg-green-100 text-green-800 ring-1 ring-inset ring-green-600/20;
+  }
+
+  .status-warning {
+    @apply bg-yellow-100 text-yellow-800 ring-1 ring-inset ring-yellow-600/20;
+  }
+
+  .status-error {
+    @apply bg-red-100 text-red-800 ring-1 ring-inset ring-red-600/20;
+  }
+
+  .status-info {
+    @apply bg-blue-100 text-blue-800 ring-1 ring-inset ring-blue-600/20;
+  }
+
+  .status-running {
+    @apply bg-green-100 text-green-800 ring-1 ring-inset ring-green-600/20;
+  }
+
   /* ========== BADGE STYLES ========== */
   .badge {
     @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold;
@@ -595,10 +686,69 @@
   .mobile-hide {
     display: none !important;
   }
+
+  /* Mobile text sizes */
+  .mobile-text-sm {
+    font-size: 0.875rem !important;
+  }
+
+  .mobile-text-xs {
+    font-size: 0.75rem !important;
+  }
+
+  /* Mobile padding adjustments */
+  .mobile-p-2 {
+    padding: 0.5rem !important;
+  }
+
+  .mobile-p-3 {
+    padding: 0.75rem !important;
+  }
+
+  .mobile-p-4 {
+    padding: 1rem !important;
+  }
+
+  /* Prevent horizontal overflow */
+  .mobile-no-overflow {
+    overflow-x: hidden !important;
+  }
 }
 
 @media (min-width: 1024px) {
   .desktop-only {
     display: block;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Make cards stack on mobile */
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Adjust header sizes for mobile */
+  h1 {
+    font-size: 1.875rem !important;
+  }
+
+  h2 {
+    font-size: 1.5rem !important;
+  }
+
+  /* Better button sizes on mobile */
+  .btn {
+    @apply px-4 py-2.5 text-sm;
+  }
+
+  /* Table headers on mobile - make them smaller */
+  .table-modern th {
+    font-size: 0.65rem !important;
+    padding: 0.5rem !important;
+  }
+
+  .table-modern td {
+    font-size: 0.8rem !important;
+    padding: 0.5rem !important;
   }
 }
