@@ -8,9 +8,10 @@ const reportsDir = path.join(__dirname, '../../reports');
  * Execute a report by name
  * @param {string} reportName - Name of the SQL report file (without .sql extension)
  * @param {object} bindParams - Optional bind parameters for the SQL query
+ * @param {object} options - Optional execution options (e.g., { maxRows: 0 } for no limit)
  * @returns {Promise<Array>} - Query results
  */
-const executeReport = async (reportName, bindParams = {}) => {
+const executeReport = async (reportName, bindParams = {}, options = {}) => {
   try {
     // Read SQL file
     const reportPath = path.join(reportsDir, `${reportName}.sql`);
@@ -21,8 +22,8 @@ const executeReport = async (reportName, bindParams = {}) => {
     // Remove trailing semicolon (Oracle doesn't like it)
     const cleanQuery = sql.trim().replace(/;+$/, '');
 
-    // Execute query
-    const result = await executeQuery(cleanQuery, bindParams);
+    // Execute query with options
+    const result = await executeQuery(cleanQuery, bindParams, options);
 
     console.log(`[Reports Service] Report ${reportName} completed: ${result.rows.length} rows`);
 

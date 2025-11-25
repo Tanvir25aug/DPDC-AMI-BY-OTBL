@@ -83,6 +83,24 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/nocs-balance-summary',
+      name: 'nocs-balance-summary',
+      component: () => import('@/views/NocsBalanceSummaryView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/customer-billing-details',
+      name: 'customer-billing-details',
+      component: () => import('@/views/CustomerBillingDetailsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/customer-details',
+      name: 'customer-details',
+      component: () => import('@/views/CustomerDetailsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: () => import('@/views/AdminView.vue'),

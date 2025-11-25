@@ -38,4 +38,8 @@ router.get('/bank_wise_collection', reportsController.getBankWiseCollection);
 router.get('/bank_reconciliation_data', reportsController.getBankReconciliationData);
 router.get('/nocs_collection_summary', reportsController.getNocsCollectionSummary);
 
+// Customer Billing Reports
+router.get('/customer_billing_details', reportsController.getCustomerBillingDetails);
+router.get('/customer_details', reportsController.getCustomerDetails);
+
 module.exports = router;

@@ -513,6 +513,303 @@ const getNocsCollectionSummary = async (req, res) => {
   }
 };
 
+/**
+ * Get Customer Billing Details
+ * Returns comprehensive billing data with daily charges and meter readings
+ * Query parameters: custId (required)
+ */
+const getCustomerBillingDetails = async (req, res) => {
+  try {
+    const { custId, startDate, endDate } = req.query;
+
+    if (!custId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Customer ID (custId) is required'
+      });
+    }
+
+    console.log('[Reports Controller] Fetching billing details for customer:', custId,
+                'Date range:', startDate || 'all', 'to', endDate || 'all');
+
+    // Prepare bind parameters
+    const bindParams = {
+      custId,
+      startDate: startDate || null,
+      endDate: endDate || null
+    };
+
+    // Execute billing query with no row limit (fetch all data)
+    const billingData = await reportsService.executeReport('customer_billing_details', bindParams, { maxRows: 0 });
+
+    // Execute customer info query
+    const customerInfo = await reportsService.executeReport('customer_additional_info', {
+      custId
+    });
+
+    // Add meter number from billing data (first record)
+    if (customerInfo[0] && billingData.length > 0) {
+      customerInfo[0].METER_NO = billingData[0].MSN;
+    }
+
+    // Process data for monthly aggregation
+    const monthlyData = aggregateMonthlyBilling(billingData);
+
+    // Calculate analytics
+    const analytics = calculateBillingAnalytics(billingData, monthlyData);
+
+    res.json({
+      success: true,
+      customerInfo: customerInfo[0] || null,
+      dailyBilling: billingData,
+      monthlyBilling: monthlyData,
+      analytics,
+      counts: {
+        dailyRecords: billingData.length,
+        monthlyRecords: monthlyData.length
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getCustomerBillingDetails:', error);
+    console.error('[Reports Controller] Error details:', {
+      message: error.message,
+      code: error.code,
+      offset: error.offset,
+      custId,
+      startDate,
+      endDate
+    });
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer billing details',
+      error: error.message,
+      errorCode: error.code,
+      errorOffset: error.offset
+    });
+  }
+};
+
+/**
+ * Helper: Aggregate daily billing into monthly totals
+ */
+function aggregateMonthlyBilling(dailyData) {
+  const monthlyMap = new Map();
+
+  dailyData.forEach(record => {
+    const endDate = new Date(record.END_DT);
+    const monthKey = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}`;
+
+    if (!monthlyMap.has(monthKey)) {
+      monthlyMap.set(monthKey, {
+        MONTH: monthKey,
+        YEAR: endDate.getFullYear(),
+        MONTH_NAME: endDate.toLocaleString('en-US', { month: 'long' }),
+        TOTAL_CHARGES: 0,
+        TOTAL_CONSUMPTION: 0,
+        BILLING_DAYS: 0,
+        START_DATE: record.START_DT,
+        END_DATE: record.END_DT,
+        RECORDS_COUNT: 0
+      });
+    }
+
+    const monthData = monthlyMap.get(monthKey);
+    monthData.TOTAL_CHARGES += parseFloat(record.DAILY_CHARGES || 0);
+    monthData.TOTAL_CONSUMPTION += parseFloat(record.QUANTITY || 0);
+    monthData.BILLING_DAYS += 1;
+    monthData.RECORDS_COUNT += 1;
+
+    // Update end date to latest
+    if (new Date(record.END_DT) > new Date(monthData.END_DATE)) {
+      monthData.END_DATE = record.END_DT;
+    }
+  });
+
+  return Array.from(monthlyMap.values()).sort((a, b) => a.MONTH.localeCompare(b.MONTH));
+}
+
+/**
+ * Helper: Calculate billing analytics
+ */
+function calculateBillingAnalytics(dailyData, monthlyData) {
+  if (!dailyData || dailyData.length === 0) {
+    return {
+      totalConsumption: 0,
+      totalCharges: 0,
+      averageDailyConsumption: 0,
+      averageDailyCharges: 0,
+      averageMonthlyConsumption: 0,
+      averageMonthlyCharges: 0,
+      highestDailyCharge: 0,
+      lowestDailyCharge: 0,
+      currentBalance: 0
+    };
+  }
+
+  const totalConsumption = dailyData.reduce((sum, r) => sum + parseFloat(r.QUANTITY || 0), 0);
+  const totalCharges = dailyData.reduce((sum, r) => sum + parseFloat(r.DAILY_CHARGES || 0), 0);
+  const currentBalance = dailyData[dailyData.length - 1]?.PAYOFF_BAL || 0;
+
+  const dailyCharges = dailyData.map(r => parseFloat(r.DAILY_CHARGES || 0));
+  const highestDailyCharge = Math.max(...dailyCharges);
+  const lowestDailyCharge = Math.min(...dailyCharges.filter(c => c > 0));
+
+  return {
+    totalConsumption: Math.round(totalConsumption * 100) / 100,
+    totalCharges: Math.round(totalCharges * 100) / 100,
+    averageDailyConsumption: Math.round((totalConsumption / dailyData.length) * 100) / 100,
+    averageDailyCharges: Math.round((totalCharges / dailyData.length) * 100) / 100,
+    averageMonthlyConsumption: monthlyData.length > 0
+      ? Math.round((totalConsumption / monthlyData.length) * 100) / 100
+      : 0,
+    averageMonthlyCharges: monthlyData.length > 0
+      ? Math.round((totalCharges / monthlyData.length) * 100) / 100
+      : 0,
+    highestDailyCharge: Math.round(highestDailyCharge * 100) / 100,
+    lowestDailyCharge: lowestDailyCharge === Infinity ? 0 : Math.round(lowestDailyCharge * 100) / 100,
+    currentBalance: Math.round(parseFloat(currentBalance) * -1 * 100) / 100
+  };
+}
+
+/**
+ * Get Customer Details (New Page)
+ * Search by Customer ID or Meter Number
+ * Returns customer info, billing history, and recharge history
+ */
+const getCustomerDetails = async (req, res) => {
+  try {
+    const { searchValue, startDate, endDate, fetchAll } = req.query;
+
+    if (!searchValue) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search value (Customer ID or Meter Number) is required'
+      });
+    }
+
+    console.log('[Reports Controller] Fetching customer details for:', searchValue);
+
+    // 1. Try to find customer by ID first (fast path - dedicated query)
+    let customerData = await reportsService.executeReport('customer_details_search', {
+      searchValue
+    });
+
+    // 2. If not found, try meter number search (optimized single query)
+    if (!customerData || customerData.length === 0) {
+      console.log('[Reports Controller] Customer ID not found, trying meter number search...');
+
+      customerData = await reportsService.executeReport('customer_search_by_meter', {
+        meterNumber: searchValue
+      });
+
+      if (customerData && customerData.length > 0) {
+        console.log('[Reports Controller] Found customer via meter number');
+      }
+    }
+
+    // 3. If still not found, return 404
+    if (!customerData || customerData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    const customer = customerData[0];
+    const saId = customer.SA_ID;
+    const custId = customer.CUSTOMER_ID;
+
+    // 2. Get billing data
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    // Default: Current month daily + Last 12 months monthly
+    let dailyStartDate = null;
+    let monthlyStartDate = null;
+
+    if (!fetchAll || fetchAll === 'false') {
+      // Current month daily
+      dailyStartDate = new Date(currentYear, currentMonth, 1);
+      // Last 12 months
+      monthlyStartDate = new Date(currentYear, currentMonth - 11, 1);
+    }
+
+    const billingParams = {
+      custId,
+      startDate: startDate || (dailyStartDate ? formatDateForOracle(dailyStartDate) : null),
+      endDate: endDate || null
+    };
+
+    const billingData = await reportsService.executeReport('customer_billing_details', billingParams, { maxRows: 0 });
+
+    // Add meter number from billing data if available
+    if (billingData && billingData.length > 0 && billingData[0].MSN) {
+      customer.METER_NO = billingData[0].MSN;
+
+      // Get meter status
+      try {
+        const meterStatusData = await reportsService.executeReport('meter_status_lookup', {
+          meterNumber: billingData[0].MSN
+        });
+        if (meterStatusData && meterStatusData.length > 0) {
+          customer.METER_STATUS = meterStatusData[0].METER_STATUS || 'Unknown';
+        } else {
+          customer.METER_STATUS = 'Unknown';
+        }
+      } catch (err) {
+        console.error('[Reports Controller] Error fetching meter status:', err);
+        customer.METER_STATUS = 'Unknown';
+      }
+    } else {
+      customer.METER_STATUS = 'N/A';
+    }
+
+    // 3. Get recharge history
+    const rechargeHistory = await reportsService.executeReport('customer_recharge_history', {
+      saId
+    });
+
+    // 4. Aggregate data
+    const monthlyData = aggregateMonthlyBilling(billingData);
+    const analytics = calculateBillingAnalytics(billingData, monthlyData);
+
+    res.json({
+      success: true,
+      customer,
+      dailyBilling: billingData,
+      monthlyBilling: monthlyData,
+      rechargeHistory,
+      analytics,
+      counts: {
+        dailyRecords: billingData.length,
+        monthlyRecords: monthlyData.length,
+        rechargeRecords: rechargeHistory.length
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getCustomerDetails:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer details',
+      error: error.message
+    });
+  }
+};
+
+// Helper: Format date for Oracle
+function formatDateForOracle(date) {
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
 module.exports = {
   getRCDCAnalyticsSummary,
   getMeterWiseCommands,
@@ -527,5 +824,7 @@ module.exports = {
   downloadNocsReportPDF,
   getBankWiseCollection,
   getBankReconciliationData,
-  getNocsCollectionSummary
+  getNocsCollectionSummary,
+  getCustomerBillingDetails, // Customer billing details
+  getCustomerDetails // NEW: Customer details page
 };

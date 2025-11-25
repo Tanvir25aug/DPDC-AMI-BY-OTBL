@@ -91,7 +91,7 @@ async function executeQuery(query, params = {}, options = {}) {
     connection = await getOracleConnection();
 
     const defaultOptions = {
-      maxRows: options.maxRows || 1000,
+      maxRows: options.maxRows !== undefined ? options.maxRows : 1000,
       outFormat: oracledb.OUT_FORMAT_OBJECT
     };
 

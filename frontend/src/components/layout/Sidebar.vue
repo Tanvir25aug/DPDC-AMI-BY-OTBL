@@ -190,6 +190,21 @@ const navItems = [
     label: 'Reports',
     icon: DocumentTextIcon,
   },
+  {
+    path: '/nocs-balance-summary',
+    label: 'NOCS Balance',
+    icon: CurrencyDollarIcon,
+  },
+  {
+    path: '/customer-billing-details',
+    label: 'Customer Billing',
+    icon: DocumentTextIcon,
+  },
+  {
+    path: '/customer-details',
+    label: 'Customer Details',
+    icon: UserGroupIcon,
+  },
   // Payment reports disabled - requires ci_pay tables access
   // {
   //   path: '/bank-wise-collection',
