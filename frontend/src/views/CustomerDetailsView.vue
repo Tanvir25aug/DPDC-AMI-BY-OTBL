@@ -285,7 +285,6 @@
                   <th class="text-right py-3 px-4 font-semibold text-gray-700">Days</th>
                   <th class="text-right py-3 px-4 font-semibold text-gray-700">Consumption (kWh)</th>
                   <th class="text-right py-3 px-4 font-semibold text-gray-700">Total Charges (৳)</th>
-                  <th class="text-right py-3 px-4 font-semibold text-gray-700">Avg/Day (৳)</th>
                 </tr>
               </thead>
               <tbody>
@@ -295,7 +294,6 @@
                   <td class="py-3 px-4 text-right">{{ row.BILLING_DAYS }}</td>
                   <td class="py-3 px-4 text-right font-semibold">{{ formatNumber(row.TOTAL_CONSUMPTION) }}</td>
                   <td class="py-3 px-4 text-right font-bold text-purple-600">{{ formatNumber(row.TOTAL_CHARGES) }}</td>
-                  <td class="py-3 px-4 text-right text-gray-600">{{ formatNumber(row.TOTAL_CHARGES / row.BILLING_DAYS) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -320,25 +318,33 @@
               <table class="w-full">
                 <thead>
                   <tr class="border-b-2 border-gray-200">
-                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
-                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Summary</th>
-                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Amount (৳)</th>
-                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Reference</th>
+                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Payment Event ID</th>
+                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Recharge Amount</th>
+                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Recharge Date</th>
+                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Rebate Amount</th>
+                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Energy Cost</th>
+                    <th class="text-right py-3 px-4 font-semibold text-gray-700">VAT Amount</th>
+                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Recharged By</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(row, index) in paginatedRechargeHistory" :key="index" class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 px-4">{{ formatDate(row.PAYMENT_DATE) }}</td>
-                    <td class="py-3 px-4">{{ row.PAYMENT_SUMMARY }}</td>
-                    <td class="py-3 px-4 text-right font-bold text-green-600">{{ formatNumber(row.PAYMENT_AMOUNT) }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-600">{{ row.PAYMENT_REF || 'N/A' }}</td>
+                    <td class="py-3 px-4 font-mono text-sm">{{ row.PAYMENT_EVENT_ID || 'N/A' }}</td>
+                    <td class="py-3 px-4 text-right font-bold text-green-600">৳ {{ formatNumber(row.RECHARGE_AMOUNT) }}</td>
+                    <td class="py-3 px-4">{{ formatDate(row.RECHARGE_DATE) }}</td>
+                    <td class="py-3 px-4 text-right font-semibold" :class="row.REBATE_AMOUNT < 0 ? 'text-red-600' : 'text-gray-700'">
+                      ৳ {{ formatNumber(row.REBATE_AMOUNT) }}
+                    </td>
+                    <td class="py-3 px-4 text-right text-gray-700">৳ {{ formatNumber(row.ENERGY_COST) }}</td>
+                    <td class="py-3 px-4 text-right text-gray-700">৳ {{ formatNumber(row.VAT_AMOUNT) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-600">{{ row.RECHARGED_BY || 'N/A' }}</td>
                   </tr>
                 </tbody>
                 <tfoot v-if="rechargeHistory && rechargeHistory.length > 0">
                   <tr class="bg-gradient-to-r from-green-50 to-emerald-50 border-t-2 border-green-300">
-                    <td colspan="2" class="py-4 px-4 font-bold text-gray-800 text-lg">Total Payment</td>
+                    <td class="py-4 px-4 font-bold text-gray-800 text-lg">Total Recharge</td>
                     <td class="py-4 px-4 text-right font-bold text-green-700 text-xl">৳ {{ formatNumber(totalPayment) }}</td>
-                    <td class="py-4 px-4"></td>
+                    <td colspan="5" class="py-4 px-4"></td>
                   </tr>
                 </tfoot>
               </table>
@@ -432,7 +438,7 @@ const paginatedRechargeHistory = computed(() => {
 
 const totalPayment = computed(() => {
   if (!rechargeHistory.value || rechargeHistory.value.length === 0) return 0;
-  return rechargeHistory.value.reduce((sum, row) => sum + parseFloat(row.PAYMENT_AMOUNT || 0), 0);
+  return rechargeHistory.value.reduce((sum, row) => sum + parseFloat(row.RECHARGE_AMOUNT || 0), 0);
 });
 
 const searchCustomer = async () => {
@@ -600,6 +606,19 @@ const getMeterStatusStyle = (status) => {
     return 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300 text-orange-700';
   }
   return 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300 text-gray-700';
+};
+
+const getPaymentStatusStyle = (status) => {
+  if (status === 'Completed') {
+    return 'bg-green-100 text-green-700';
+  } else if (status === 'Frozen') {
+    return 'bg-blue-100 text-blue-700';
+  } else if (status === 'Matched') {
+    return 'bg-purple-100 text-purple-700';
+  } else if (status === 'Pending') {
+    return 'bg-yellow-100 text-yellow-700';
+  }
+  return 'bg-gray-100 text-gray-700';
 };
 </script>
 
