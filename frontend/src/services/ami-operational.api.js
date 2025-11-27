@@ -44,9 +44,57 @@ export const getBatchPerformance = (startDate = null, endDate = null) => {
   return api.get('/ami-operational/batch-performance', { params });
 };
 
+/**
+ * Get Active Alerts (unacknowledged)
+ * @returns {Promise} Response with active alerts and counts by severity
+ */
+export const getActiveAlerts = () => {
+  return api.get('/ami-operational/active-alerts');
+};
+
+/**
+ * Get Batch Execution Logs with filters
+ * @param {object} filters - Filter options (batchCode, status, startDate, endDate, limit)
+ * @returns {Promise} Response with batch logs
+ */
+export const getBatchLogs = (filters = {}) => {
+  return api.get('/ami-operational/batch-logs', { params: filters });
+};
+
+/**
+ * Get Batch Workflow Timeline with today's execution status
+ * @returns {Promise} Response with 6-step workflow timeline
+ */
+export const getBatchTimeline = () => {
+  return api.get('/ami-operational/batch-timeline');
+};
+
+/**
+ * Get Batch Health Summary (success rates and recent failures)
+ * @param {number} days - Number of days to look back (default 7)
+ * @returns {Promise} Response with batch health data
+ */
+export const getBatchHealth = (days = 7) => {
+  return api.get('/ami-operational/batch-health', { params: { days } });
+};
+
+/**
+ * Acknowledge an alert by ID
+ * @param {number} alertId - Alert ID to acknowledge
+ * @returns {Promise} Response
+ */
+export const acknowledgeAlert = (alertId) => {
+  return api.post(`/ami-operational/acknowledge-alert/${alertId}`);
+};
+
 export default {
   getPendingIMDCount,
   getBillCount,
   getRunningBatches,
-  getBatchPerformance
+  getBatchPerformance,
+  getActiveAlerts,
+  getBatchLogs,
+  getBatchTimeline,
+  getBatchHealth,
+  acknowledgeAlert
 };

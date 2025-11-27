@@ -8,6 +8,10 @@
           <p class="text-teal-100 mt-1 text-sm md:text-base">Advanced Metering Infrastructure Operations</p>
         </div>
         <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <!-- Auto-refresh Countdown -->
+          <div v-if="autoRefreshCountdown > 0" class="text-white text-xs sm:text-sm bg-white/20 px-3 py-2 rounded-lg">
+            Next refresh: {{ formatCountdown(autoRefreshCountdown) }}
+          </div>
           <!-- Refresh Button -->
           <button
             @click="refreshAllData"
@@ -21,7 +25,15 @@
       </div>
     </div>
 
-    <!-- Summary Cards Row -->
+    <!-- Batch Monitoring Alerts -->
+    <BatchAlertsComponent ref="batchAlertsRef" />
+
+    <!-- Batch Operation Timeline -->
+    <div class="mb-6">
+      <BatchTimelineComponent ref="batchTimelineRef" />
+    </div>
+
+    <!-- Summary Cards Row - Original 4 Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <!-- Pending IMD Card -->
       <div class="bg-white rounded-xl shadow-md border border-gray-100 p-5 relative overflow-hidden">
@@ -134,6 +146,95 @@
           </div>
         </div>
         <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 to-purple-600"></div>
+      </div>
+    </div>
+
+    <!-- Enhanced Summary Cards Row - New Batch Monitoring Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <!-- Success Rate Card (7 days) -->
+      <div class="bg-white rounded-xl shadow-md border border-gray-100 p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-medium text-gray-500">Success Rate (7 days)</p>
+          <button
+            @click="loadBatchHealth"
+            :disabled="loadingStates.batchHealth"
+            class="p-1 hover:bg-gray-100 rounded transition-colors"
+            title="Refresh"
+          >
+            <ArrowPathIcon :class="['w-4 h-4 text-gray-500', loadingStates.batchHealth ? 'animate-spin' : '']" />
+          </button>
+        </div>
+        <div class="flex items-center justify-between">
+          <div>
+            <p v-if="loadingStates.batchHealth" class="text-2xl font-bold text-gray-400">
+              <span class="animate-pulse">Loading...</span>
+            </p>
+            <p v-else class="text-2xl font-bold text-green-600">
+              {{ batchHealthSummary.successRate }}%
+            </p>
+          </div>
+          <div class="p-3 bg-green-100 rounded-lg">
+            <CheckCircleIcon class="w-6 h-6 text-green-600" />
+          </div>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-green-600"></div>
+      </div>
+
+      <!-- Failed Batches Card (24h) -->
+      <div class="bg-white rounded-xl shadow-md border border-gray-100 p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Failed (24h)</p>
+            <p v-if="loadingStates.batchHealth" class="text-2xl font-bold text-gray-400 mt-1">
+              <span class="animate-pulse">Loading...</span>
+            </p>
+            <p v-else class="text-2xl font-bold text-red-600 mt-1">
+              {{ batchHealthSummary.failedCount }}
+            </p>
+          </div>
+          <div class="p-3 bg-red-100 rounded-lg">
+            <XCircleIcon class="w-6 h-6 text-red-600" />
+          </div>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-red-400 to-red-600"></div>
+      </div>
+
+      <!-- Avg RPS Card (Today) -->
+      <div class="bg-white rounded-xl shadow-md border border-gray-100 p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Avg RPS (Today)</p>
+            <p v-if="loadingStates.batchHealth" class="text-2xl font-bold text-gray-400 mt-1">
+              <span class="animate-pulse">Loading...</span>
+            </p>
+            <p v-else class="text-2xl font-bold text-blue-600 mt-1">
+              {{ batchHealthSummary.avgRps }}
+            </p>
+          </div>
+          <div class="p-3 bg-blue-100 rounded-lg">
+            <ChartBarIcon class="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
+      </div>
+
+      <!-- Active Alerts Card -->
+      <div class="bg-white rounded-xl shadow-md border border-gray-100 p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">Active Alerts</p>
+            <p v-if="loadingStates.activeAlerts" class="text-2xl font-bold text-gray-400 mt-1">
+              <span class="animate-pulse">Loading...</span>
+            </p>
+            <p v-else class="text-2xl font-bold text-orange-600 mt-1">
+              {{ activeAlertsCount }}
+            </p>
+          </div>
+          <div class="p-3 bg-orange-100 rounded-lg">
+            <BellAlertIcon class="w-6 h-6 text-orange-600" />
+          </div>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 to-orange-600"></div>
       </div>
     </div>
 
@@ -464,21 +565,34 @@ import {
   DocumentTextIcon,
   PlayIcon,
   ChartBarIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  BellAlertIcon
 } from '@heroicons/vue/24/outline';
 import {
   getPendingIMDCount,
   getBillCount,
   getRunningBatches,
-  getBatchPerformance
+  getBatchPerformance,
+  getBatchHealth,
+  getActiveAlerts
 } from '@/services/ami-operational.api';
 import Chart from 'chart.js/auto';
+import BatchTimelineComponent from '@/components/BatchTimelineComponent.vue';
+import BatchAlertsComponent from '@/components/BatchAlertsComponent.vue';
+
+// Component refs
+const batchTimelineRef = ref(null);
+const batchAlertsRef = ref(null);
 
 // State - Individual loading states for progressive loading
 const loadingStates = ref({
   pendingIMD: false,
   billCount: false,
   runningBatches: false,
-  batchPerformance: false
+  batchPerformance: false,
+  batchHealth: false,
+  activeAlerts: false
 });
 
 // Last update times
@@ -492,6 +606,18 @@ const pendingIMDCount = ref(0);
 const billCount = ref(null);
 const runningBatches = ref([]);
 const batchPerformance = ref([]);
+const batchHealthSummary = ref({
+  successRate: 0,
+  failedCount: 0,
+  avgRps: 0
+});
+const activeAlertsCount = ref(0);
+
+// Auto-refresh
+const autoRefreshInterval = 30 * 60; // 30 minutes in seconds
+const autoRefreshCountdown = ref(autoRefreshInterval);
+let autoRefreshTimer = null;
+let countdownTimer = null;
 
 // Bill date filter
 const billDateFilter = ref(new Date().toISOString().split('T')[0]);
@@ -638,18 +764,128 @@ const clearFilters = () => {
   };
 };
 
+// Load batch health summary
+const loadBatchHealth = async () => {
+  loadingStates.value.batchHealth = true;
+  try {
+    const response = await getBatchHealth(7); // Last 7 days
+    const summary = response.data.data?.summary || [];
+    const recentFailures = response.data.data?.recentFailures || [];
+
+    // Calculate overall success rate
+    let totalRuns = 0;
+    let totalSuccessful = 0;
+    let totalRps = 0;
+
+    summary.forEach(batch => {
+      totalRuns += parseInt(batch.total_runs) || 0;
+      totalSuccessful += parseInt(batch.successful_runs) || 0;
+      totalRps += parseFloat(batch.avg_rps) || 0;
+    });
+
+    const successRate = totalRuns > 0 ? ((totalSuccessful / totalRuns) * 100).toFixed(1) : 0;
+    const avgRps = summary.length > 0 ? (totalRps / summary.length).toFixed(2) : 0;
+
+    batchHealthSummary.value = {
+      successRate: successRate,
+      failedCount: recentFailures.length,
+      avgRps: avgRps
+    };
+
+    console.log('[AMI Operational] Batch health loaded:', batchHealthSummary.value);
+  } catch (error) {
+    console.error('[AMI Operational] Error loading batch health:', error);
+    batchHealthSummary.value = {
+      successRate: 0,
+      failedCount: 0,
+      avgRps: 0
+    };
+  } finally {
+    loadingStates.value.batchHealth = false;
+  }
+};
+
+// Load active alerts count
+const loadActiveAlertsCount = async () => {
+  loadingStates.value.activeAlerts = true;
+  try {
+    const response = await getActiveAlerts();
+    activeAlertsCount.value = response.data.data?.total || 0;
+    console.log('[AMI Operational] Active alerts count loaded:', activeAlertsCount.value);
+  } catch (error) {
+    console.error('[AMI Operational] Error loading active alerts count:', error);
+    activeAlertsCount.value = 0;
+  } finally {
+    loadingStates.value.activeAlerts = false;
+  }
+};
+
 // Refresh all data - each query runs independently
 const refreshAllData = () => {
   // Start all queries in parallel - results will show as they come in
   loadPendingIMD();
   loadRunningBatches();
-  // Bill count and batch performance require user to click button
+  loadBatchHealth();
+  loadActiveAlertsCount();
+
+  // Refresh child components
+  if (batchTimelineRef.value) {
+    batchTimelineRef.value.refreshTimeline();
+  }
+  if (batchAlertsRef.value) {
+    batchAlertsRef.value.refreshAlerts();
+  }
+
+  // Reset auto-refresh countdown
+  resetAutoRefreshCountdown();
 };
 
 // Load initial data on mount (only auto-load pendingIMD and runningBatches)
 const loadInitialData = () => {
   loadPendingIMD();
   loadRunningBatches();
+  loadBatchHealth();
+  loadActiveAlertsCount();
+};
+
+// Auto-refresh functionality
+const startAutoRefresh = () => {
+  // Reset countdown
+  autoRefreshCountdown.value = autoRefreshInterval;
+
+  // Start countdown timer (updates every second)
+  countdownTimer = setInterval(() => {
+    if (autoRefreshCountdown.value > 0) {
+      autoRefreshCountdown.value--;
+    }
+  }, 1000);
+
+  // Start auto-refresh timer (runs every 30 minutes)
+  autoRefreshTimer = setInterval(() => {
+    console.log('[AMI Operational] Auto-refresh triggered');
+    refreshAllData();
+  }, autoRefreshInterval * 1000);
+};
+
+const stopAutoRefresh = () => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+};
+
+const resetAutoRefreshCountdown = () => {
+  autoRefreshCountdown.value = autoRefreshInterval;
+};
+
+const formatCountdown = (seconds) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 };
 
 // Format helpers
@@ -814,11 +1050,15 @@ const updateCharts = () => {
 onMounted(() => {
   console.log('[AMI Operational] View mounted');
   loadInitialData();
+  startAutoRefresh();
+  console.log('[AMI Operational] Auto-refresh enabled (every 30 minutes)');
 });
 
 onUnmounted(() => {
   if (rpsChart) rpsChart.destroy();
   if (durationChart) durationChart.destroy();
+  stopAutoRefresh();
+  console.log('[AMI Operational] Auto-refresh stopped');
 });
 </script>
 
