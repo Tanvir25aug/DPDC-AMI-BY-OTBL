@@ -3,9 +3,9 @@
     <div class="navbar-container">
       <div class="navbar-brand">
         <router-link to="/dashboard" class="brand-link">
-          <img src="@/assets/DPDC_Logo.png" alt="DPDC Logo" class="brand-logo dpdc-logo" />
+          <img :src="dpdcLogo" alt="DPDC Logo" class="brand-logo dpdc-logo" />
           <span class="brand-text">DPDC AMI by</span>
-          <img src="@/assets/OTBL_logo.png" alt="OTBL Logo" class="brand-logo otbl-logo" />
+          <img :src="otblLogo" alt="OTBL Logo" class="brand-logo otbl-logo" />
         </router-link>
       </div>
 
@@ -48,6 +48,8 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
+import dpdcLogo from '@/assets/DPDC_Logo.png';
+import otblLogo from '@/assets/OTBL_logo.png';
 
 const authStore = useAuthStore();
 const router = useRouter();

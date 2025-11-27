@@ -16,9 +16,9 @@
         <div class="text-center mb-8">
           <!-- Company Logos -->
           <div class="flex items-center justify-center gap-4 mb-6">
-            <img src="@/assets/DPDC_Logo.png" alt="DPDC Logo" class="login-logo dpdc-logo" />
+            <img :src="dpdcLogo" alt="DPDC Logo" class="login-logo dpdc-logo" />
             <div class="h-16 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
-            <img src="@/assets/OTBL_logo.png" alt="OTBL Logo" class="login-logo otbl-logo" />
+            <img :src="otblLogo" alt="OTBL Logo" class="login-logo otbl-logo" />
           </div>
           <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 animate-gradient">
             DPDC AMI System
@@ -166,6 +166,8 @@
 import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import dpdcLogo from '@/assets/DPDC_Logo.png';
+import otblLogo from '@/assets/OTBL_logo.png';
 
 const router = useRouter();
 const route = useRoute();
