@@ -208,7 +208,7 @@ const getStatusLabel = (statusCode) => {
  */
 const getActiveAlerts = async (req, res) => {
   try {
-    const { sequelize } = require('../config/database');
+    const sequelize = require('../config/database');
 
     const [alerts] = await sequelize.query(
       `SELECT
@@ -275,7 +275,7 @@ const getActiveAlerts = async (req, res) => {
  */
 const getBatchLogs = async (req, res) => {
   try {
-    const { sequelize } = require('../config/database');
+    const sequelize = require('../config/database');
     const { batchCode, status, startDate, endDate, limit = 100 } = req.query;
 
     let whereClause = [];
@@ -349,7 +349,7 @@ const getBatchLogs = async (req, res) => {
  */
 const getBatchTimeline = async (req, res) => {
   try {
-    const { sequelize } = require('../config/database');
+    const sequelize = require('../config/database');
     const today = new Date().toISOString().split('T')[0];
 
     // Get workflow configuration
@@ -428,7 +428,7 @@ const getBatchTimeline = async (req, res) => {
  */
 const getBatchHealth = async (req, res) => {
   try {
-    const { sequelize } = require('../config/database');
+    const sequelize = require('../config/database');
     const { days = 7 } = req.query;
 
     // Get performance summary for last N days
@@ -488,7 +488,7 @@ const getBatchHealth = async (req, res) => {
  */
 const acknowledgeAlert = async (req, res) => {
   try {
-    const { sequelize } = require('../config/database');
+    const sequelize = require('../config/database');
     const { id } = req.params;
     const { username } = req.user || { username: 'system' };
 
