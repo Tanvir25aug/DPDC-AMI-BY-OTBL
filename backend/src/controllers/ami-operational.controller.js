@@ -203,9 +203,330 @@ const getStatusLabel = (statusCode) => {
   return statusMap[statusCode] || statusCode;
 };
 
+/**
+ * Get Active Alerts (unacknowledged)
+ */
+const getActiveAlerts = async (req, res) => {
+  try {
+    const { sequelize } = require('../config/database');
+
+    const [alerts] = await sequelize.query(
+      `SELECT
+        id,
+        batch_code,
+        alert_type,
+        alert_severity,
+        alert_message,
+        business_date,
+        created_at,
+        email_sent
+      FROM batch_monitoring_alerts
+      WHERE acknowledged = false
+      ORDER BY
+        CASE alert_severity
+          WHEN 'CRITICAL' THEN 1
+          WHEN 'WARNING' THEN 2
+          ELSE 3
+        END,
+        created_at DESC
+      LIMIT 50`
+    );
+
+    // Count by severity
+    const [counts] = await sequelize.query(
+      `SELECT
+        alert_severity,
+        COUNT(*) as count
+      FROM batch_monitoring_alerts
+      WHERE acknowledged = false
+      GROUP BY alert_severity`
+    );
+
+    const severityCounts = {
+      CRITICAL: 0,
+      WARNING: 0,
+      INFO: 0
+    };
+
+    counts.forEach(row => {
+      severityCounts[row.alert_severity] = parseInt(row.count);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        alerts: alerts,
+        total: alerts.length,
+        counts: severityCounts
+      }
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Error getting active alerts:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get active alerts',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get Batch Execution Logs
+ */
+const getBatchLogs = async (req, res) => {
+  try {
+    const { sequelize } = require('../config/database');
+    const { batchCode, status, startDate, endDate, limit = 100 } = req.query;
+
+    let whereClause = [];
+    let replacements = {};
+
+    if (batchCode) {
+      whereClause.push('batch_code = :batchCode');
+      replacements.batchCode = batchCode;
+    }
+
+    if (status) {
+      whereClause.push('status = :status');
+      replacements.status = status;
+    }
+
+    if (startDate) {
+      whereClause.push('business_date >= :startDate');
+      replacements.startDate = startDate;
+    }
+
+    if (endDate) {
+      whereClause.push('business_date <= :endDate');
+      replacements.endDate = endDate;
+    }
+
+    const whereSQL = whereClause.length > 0 ? 'WHERE ' + whereClause.join(' AND ') : '';
+
+    const [logs] = await sequelize.query(
+      `SELECT
+        id,
+        batch_code,
+        batch_nbr,
+        status,
+        start_time,
+        end_time,
+        duration_seconds,
+        thread_count,
+        records_processed,
+        rps,
+        business_date,
+        error_message,
+        created_at
+      FROM batch_execution_logs
+      ${whereSQL}
+      ORDER BY start_time DESC
+      LIMIT :limit`,
+      {
+        replacements: { ...replacements, limit: parseInt(limit) }
+      }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        logs: logs,
+        total: logs.length
+      }
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Error getting batch logs:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get batch logs',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get Batch Workflow Timeline
+ */
+const getBatchTimeline = async (req, res) => {
+  try {
+    const { sequelize } = require('../config/database');
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get workflow configuration
+    const [workflow] = await sequelize.query(
+      `SELECT
+        batch_code,
+        batch_name,
+        sequence_order,
+        expected_start_time,
+        expected_duration_minutes,
+        max_duration_minutes,
+        is_critical,
+        depends_on_batch,
+        can_run_multiple
+      FROM batch_workflow_config
+      WHERE enabled = true
+      ORDER BY sequence_order`
+    );
+
+    // Get today's batch execution status
+    const [todayStatus] = await sequelize.query(
+      `SELECT
+        batch_code,
+        status,
+        start_time,
+        end_time,
+        duration_seconds,
+        records_processed,
+        rps
+      FROM batch_execution_logs
+      WHERE business_date = :today
+        AND id IN (
+          SELECT MAX(id)
+          FROM batch_execution_logs
+          WHERE business_date = :today
+          GROUP BY batch_code
+        )`,
+      { replacements: { today } }
+    );
+
+    // Merge workflow with today's status
+    const timeline = workflow.map(batch => {
+      const todayBatch = todayStatus.find(t => t.batch_code === batch.batch_code);
+      return {
+        ...batch,
+        todayStatus: todayBatch ? {
+          status: todayBatch.status,
+          start_time: todayBatch.start_time,
+          end_time: todayBatch.end_time,
+          duration_seconds: todayBatch.duration_seconds,
+          records_processed: todayBatch.records_processed,
+          rps: todayBatch.rps
+        } : null
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        timeline: timeline,
+        businessDate: today
+      }
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Error getting batch timeline:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get batch timeline',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get Batch Health Summary
+ */
+const getBatchHealth = async (req, res) => {
+  try {
+    const { sequelize } = require('../config/database');
+    const { days = 7 } = req.query;
+
+    // Get performance summary for last N days
+    const [summary] = await sequelize.query(
+      `SELECT
+        batch_code,
+        SUM(total_runs) as total_runs,
+        SUM(successful_runs) as successful_runs,
+        SUM(failed_runs) as failed_runs,
+        CASE
+          WHEN SUM(total_runs) > 0 THEN (SUM(successful_runs)::decimal / SUM(total_runs) * 100)
+          ELSE 0
+        END as success_rate,
+        AVG(avg_duration_seconds) as avg_duration,
+        AVG(avg_rps) as avg_rps
+      FROM batch_performance_summary
+      WHERE business_date >= CURRENT_DATE - INTERVAL '${parseInt(days)} days'
+      GROUP BY batch_code
+      ORDER BY batch_code`
+    );
+
+    // Get failed batches in last 24 hours
+    const [recentFailures] = await sequelize.query(
+      `SELECT
+        batch_code,
+        start_time,
+        end_time,
+        error_message,
+        business_date
+      FROM batch_execution_logs
+      WHERE status = 'Error'
+        AND start_time >= NOW() - INTERVAL '24 hours'
+      ORDER BY start_time DESC
+      LIMIT 10`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        summary: summary,
+        recentFailures: recentFailures,
+        period: `Last ${days} days`
+      }
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Error getting batch health:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get batch health',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Acknowledge Alert
+ */
+const acknowledgeAlert = async (req, res) => {
+  try {
+    const { sequelize } = require('../config/database');
+    const { id } = req.params;
+    const { username } = req.user || { username: 'system' };
+
+    await sequelize.query(
+      `UPDATE batch_monitoring_alerts
+       SET
+         acknowledged = true,
+         acknowledged_by = :username,
+         acknowledged_at = NOW(),
+         updated_at = NOW()
+       WHERE id = :id`,
+      {
+        replacements: { id, username }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Alert acknowledged successfully'
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Error acknowledging alert:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to acknowledge alert',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getPendingIMDCount,
   getBillCount,
   getRunningBatches,
-  getBatchPerformance
+  getBatchPerformance,
+  getActiveAlerts,
+  getBatchLogs,
+  getBatchTimeline,
+  getBatchHealth,
+  acknowledgeAlert
 };

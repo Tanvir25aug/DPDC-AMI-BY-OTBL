@@ -12,6 +12,7 @@ const routes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const nocsBalanceScheduler = require('./services/nocs-balance-scheduler.service');
+const batchMonitoringScheduler = require('./schedulers/batch-monitoring.scheduler');
 
 const app = express();
 // Trust only the first proxy (Nginx) for X-Forwarded-For headers
@@ -75,6 +76,12 @@ async function startServer() {
     // Start NOCS Balance hourly scheduler
     nocsBalanceScheduler.startScheduler();
     logger.info('✅ NOCS Balance Scheduler started (runs hourly)');
+
+    // Start Batch Monitoring Scheduler
+    logger.info('========================================');
+    await batchMonitoringScheduler.startScheduler();
+    logger.info('✅ Batch Monitoring Scheduler started (runs every 15 minutes)');
+    logger.info('========================================');
 
     // Start server
     const server = app.listen(PORT, () => {
