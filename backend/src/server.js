@@ -11,6 +11,7 @@ const { initializeOraclePool, closeOraclePool } = require('./config/oracle');
 const routes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
+const nocsBalanceScheduler = require('./services/nocs-balance-scheduler.service');
 
 const app = express();
 // Trust only the first proxy (Nginx) for X-Forwarded-For headers
@@ -71,6 +72,10 @@ async function startServer() {
     await initializeOraclePool();
     logger.info('✅ Oracle connection pool initialized');
 
+    // Start NOCS Balance hourly scheduler
+    nocsBalanceScheduler.startScheduler();
+    logger.info('✅ NOCS Balance Scheduler started (runs hourly)');
+
     // Start server
     const server = app.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);
@@ -108,6 +113,10 @@ async function startServer() {
         logger.info('HTTP server closed');
 
         try {
+          // Stop schedulers
+          nocsBalanceScheduler.stopScheduler();
+          logger.info('NOCS Balance Scheduler stopped');
+
           // Close database connections
           await sequelize.close();
           logger.info('PostgreSQL connection closed');

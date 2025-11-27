@@ -5,6 +5,7 @@ const QueryLog = require('./QueryLog');
 const LoginHistory = require('./LoginHistory');
 const UserSession = require('./UserSession');
 const UserActivity = require('./UserActivity');
+const NocsBalanceSummary = require('./NocsBalanceSummary');
 
 // Define associations
 User.belongsTo(Role, {
@@ -67,5 +68,6 @@ module.exports = {
   QueryLog,
   LoginHistory,
   UserSession,
-  UserActivity
+  UserActivity,
+  NocsBalanceSummary
 };

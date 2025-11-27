@@ -42,4 +42,7 @@ router.get('/nocs_collection_summary', reportsController.getNocsCollectionSummar
 router.get('/customer_billing_details', reportsController.getCustomerBillingDetails);
 router.get('/customer_details', reportsController.getCustomerDetails);
 
+// NOCS Balance Summary (Ultra Fast - Pre-calculated hourly)
+router.get('/nocs_balance_summary', reportsController.getNocsBalanceSummary);
+
 module.exports = router;

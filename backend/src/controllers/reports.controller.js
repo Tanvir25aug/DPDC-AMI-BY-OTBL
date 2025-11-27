@@ -2,6 +2,7 @@ const reportsService = require('../services/reports.service');
 const realtimeService = require('../services/realtime.service');
 const pdfService = require('../services/pdf.service');
 const cacheService = require('../services/cache.service');
+const nocsBalanceScheduler = require('../services/nocs-balance-scheduler.service');
 
 /**
  * Get RC/DC analytics summary
@@ -801,6 +802,80 @@ const getCustomerDetails = async (req, res) => {
   }
 };
 
+/**
+ * Get NOCS Balance Summary (Ultra Fast - Cached in PostgreSQL)
+ * Returns cached balance summary for all NOCS areas
+ * Data is refreshed hourly by background scheduler
+ * Performance: <0.1 seconds (serves from PostgreSQL cache)
+ *
+ * Cache Strategy:
+ * - Query runs hourly in background (takes 5-10 min for 3 lakh customers)
+ * - Results cached in PostgreSQL database (NOT in Oracle database)
+ * - Users get instant response from PostgreSQL cache
+ * - No writes to Oracle database (read-only access)
+ * - Cache survives server restarts
+ */
+const getNocsBalanceSummary = async (req, res) => {
+  try {
+    console.log('[Reports Controller] Fetching NOCS balance summary from PostgreSQL cache...');
+
+    // Check if manual refresh requested
+    const forceRefresh = req.query.refresh === 'true';
+
+    let cachedData;
+    if (forceRefresh) {
+      console.log('[Reports Controller] Manual refresh requested...');
+      cachedData = await nocsBalanceScheduler.forceRefresh();
+    } else {
+      cachedData = await nocsBalanceScheduler.getCachedData();
+    }
+
+    if (!cachedData) {
+      // Cache miss - data is being refreshed
+      return res.status(202).json({
+        success: false,
+        message: 'NOCS balance data is being calculated. Please try again in a few moments.',
+        refreshing: true,
+        estimatedWaitTime: '5-10 minutes',
+        note: 'Initial data load takes 5-10 minutes for 3 lakh customers. Subsequent requests will be instant.'
+      });
+    }
+
+    console.log(`[Reports Controller] Retrieved ${cachedData.count} NOCS balance records from cache`);
+
+    // Transform data to match frontend expectations (uppercase field names)
+    const transformedData = cachedData.data.map(row => ({
+      NOCS_NAME: row.nocs_name,
+      NOCS_CODE: row.nocs_code?.trim(), // Remove trailing spaces
+      TOTAL_CUSTOMERS: row.total_customers,
+      CREDIT_QTY: row.credit_qty,
+      CREDIT_BALANCE_AMT: parseFloat(row.credit_balance_amt) || 0,
+      DUE_QTY: row.due_qty,
+      DUE_BALANCE_AMT: parseFloat(row.due_balance_amt) || 0,
+      NET_BALANCE: parseFloat(row.net_balance) || 0
+    }));
+
+    res.json({
+      success: true,
+      data: transformedData,
+      count: transformedData.length,
+      lastUpdated: cachedData.lastUpdated,
+      ageMinutes: cachedData.ageMinutes,
+      source: cachedData.source,
+      cached: true,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getNocsBalanceSummary:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch NOCS balance summary',
+      error: error.message
+    });
+  }
+};
+
 // Helper: Format date for Oracle
 function formatDateForOracle(date) {
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -826,5 +901,6 @@ module.exports = {
   getBankReconciliationData,
   getNocsCollectionSummary,
   getCustomerBillingDetails, // Customer billing details
-  getCustomerDetails // NEW: Customer details page
+  getCustomerDetails, // NEW: Customer details page
+  getNocsBalanceSummary // NEW: NOCS balance summary (hourly cached)
 };
