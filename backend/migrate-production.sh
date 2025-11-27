@@ -31,14 +31,15 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-echo "Loading database credentials from .env..."
+echo "Loading PostgreSQL database credentials from .env..."
 source .env
 
-DB_USER=${DB_USER:-postgres}
-DB_PASSWORD=${DB_PASSWORD}
-DB_NAME=${DB_NAME:-dpdc_ami_db}
-DB_HOST=${DB_HOST:-localhost}
-DB_PORT=${DB_PORT:-5432}
+# Use PostgreSQL specific variables (not Oracle!)
+DB_USER=${POSTGRES_USER:-${PG_USER:-postgres}}
+DB_PASSWORD=${POSTGRES_PASSWORD:-${PG_PASSWORD}}
+DB_NAME=${POSTGRES_DB:-${PG_DB:-dpdc_ami_db}}
+DB_HOST=${POSTGRES_HOST:-${PG_HOST:-localhost}}
+DB_PORT=${POSTGRES_PORT:-${PG_PORT:-5432}}
 
 echo -e "${GREEN}✓ Database credentials loaded${NC}"
 echo "  User: $DB_USER"
