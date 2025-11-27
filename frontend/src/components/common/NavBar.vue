@@ -2,7 +2,11 @@
   <nav class="navbar">
     <div class="navbar-container">
       <div class="navbar-brand">
-        <router-link to="/dashboard">DPDC AMI by OTBL</router-link>
+        <router-link to="/dashboard" class="brand-link">
+          <img src="@/assets/DPDC_Logo.png" alt="DPDC Logo" class="brand-logo dpdc-logo" />
+          <span class="brand-text">DPDC AMI by</span>
+          <img src="@/assets/OTBL_logo.png" alt="OTBL Logo" class="brand-logo otbl-logo" />
+        </router-link>
       </div>
 
       <div class="navbar-menu">
@@ -68,14 +72,40 @@ const handleLogout = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
+  height: 90px;
 }
 
-.navbar-brand a {
-  color: white;
+.navbar-brand .brand-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   text-decoration: none;
-  font-size: 20px;
-  font-weight: bold;
+  transition: opacity 0.3s;
+}
+
+.navbar-brand .brand-link:hover {
+  opacity: 0.9;
+}
+
+.brand-logo {
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+}
+
+.dpdc-logo {
+  filter: brightness(1.1);
+}
+
+.otbl-logo {
+  height: 45px;
+}
+
+.brand-text {
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .navbar-menu {

@@ -14,10 +14,11 @@
       <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-10 border border-white/20 transform transition-all duration-500 hover:shadow-3xl">
         <!-- Logo and Title Section -->
         <div class="text-center mb-8">
-          <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-4 shadow-lg transform transition-transform hover:rotate-6">
-            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+          <!-- Company Logos -->
+          <div class="flex items-center justify-center gap-4 mb-6">
+            <img src="@/assets/DPDC_Logo.png" alt="DPDC Logo" class="login-logo dpdc-logo" />
+            <div class="h-16 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
+            <img src="@/assets/OTBL_logo.png" alt="OTBL Logo" class="login-logo otbl-logo" />
           </div>
           <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 animate-gradient">
             DPDC AMI System
@@ -256,5 +257,25 @@ const handleLogin = async () => {
 
 .delay-1000 {
   animation-delay: 1s;
+}
+
+.login-logo {
+  height: 80px;
+  width: auto;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.login-logo:hover {
+  transform: scale(1.05);
+}
+
+.dpdc-logo {
+  max-width: 100px;
+}
+
+.otbl-logo {
+  height: 55px;
+  max-width: 120px;
 }
 </style>
