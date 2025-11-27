@@ -7,10 +7,10 @@
  */
 
 const { executeQuery } = require('../config/oracle');
-const { sequelize } = require('../config/database');
+const sequelize = require('../config/database');
 const BatchExecutionLog = require('../models/BatchExecutionLog');
 const BatchMonitoringAlert = require('../models/BatchMonitoringAlert');
-const logger = require('../utils/logger');
+const logger = require('../config/logger');
 
 class BatchMonitoringScheduler {
   constructor() {
@@ -505,7 +505,7 @@ class BatchMonitoringScheduler {
     try {
       const retentionDays = 60;
       const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.setDate() - retentionDays);
+      cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
       const deleted = await BatchExecutionLog.destroy({
         where: {
