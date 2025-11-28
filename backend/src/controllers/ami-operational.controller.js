@@ -372,7 +372,7 @@ const getBatchTimeline = async (req, res) => {
     // Get today's batch execution status
     const [todayStatus] = await sequelize.query(
       `SELECT
-        batch_code,
+        TRIM(batch_code) as batch_code,
         status,
         start_time,
         end_time,
@@ -392,7 +392,7 @@ const getBatchTimeline = async (req, res) => {
 
     // Merge workflow with today's status
     const timeline = workflow.map(batch => {
-      const todayBatch = todayStatus.find(t => t.batch_code === batch.batch_code);
+      const todayBatch = todayStatus.find(t => t.batch_code.trim() === batch.batch_code.trim());
       return {
         ...batch,
         todayStatus: todayBatch ? {
