@@ -28,11 +28,6 @@
     <!-- Batch Monitoring Alerts -->
     <BatchAlertsComponent ref="batchAlertsRef" />
 
-    <!-- Batch Operation Timeline -->
-    <div class="mb-6">
-      <BatchTimelineComponent ref="batchTimelineRef" />
-    </div>
-
     <!-- Summary Cards Row - Original 4 Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <!-- Pending IMD Card -->
@@ -49,14 +44,20 @@
           </button>
         </div>
         <div class="flex items-center justify-between">
-          <div>
+          <div class="flex-1">
             <p v-if="loadingStates.pendingIMD" class="text-2xl font-bold text-gray-400">
               <span class="animate-pulse">Loading...</span>
             </p>
             <p v-else class="text-2xl font-bold text-orange-600">
               {{ pendingIMDCount.toLocaleString() }}
             </p>
-            <p v-if="lastUpdates.pendingIMD" class="text-xs text-gray-400 mt-1">
+            <div v-if="d1ImdRps !== null" class="mt-1">
+              <p class="text-xs text-gray-500">D1-IMD Running</p>
+              <p :class="getRpsClass(d1ImdRps)" class="text-sm font-semibold">
+                RPS: {{ d1ImdRps.toFixed(2) }}
+              </p>
+            </div>
+            <p v-else-if="lastUpdates.pendingIMD" class="text-xs text-gray-400 mt-1">
               Updated: {{ formatTime(lastUpdates.pendingIMD) }}
             </p>
           </div>
@@ -272,8 +273,9 @@
               <tr>
                 <th>Batch Code</th>
                 <th>Start Time</th>
-                <th>Threads</th>
+                <th>Duration</th>
                 <th>Records</th>
+                <th>RPS (Live)</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -281,8 +283,13 @@
               <tr v-for="batch in runningBatches" :key="batch.batchCode">
                 <td class="font-semibold">{{ batch.batchCode }}</td>
                 <td class="text-gray-600">{{ formatDateTime(batch.startTime) }}</td>
-                <td class="text-gray-600">{{ batch.threadCount }}</td>
+                <td class="text-gray-600 font-medium">{{ getRunningDuration(batch.startTime) }}</td>
                 <td class="text-gray-600">{{ (batch.totalRecords || 0).toLocaleString() }}</td>
+                <td>
+                  <span :class="getRpsClass(calculateRunningRPS(batch.startTime, batch.totalRecords))" class="font-semibold text-sm">
+                    {{ calculateRunningRPS(batch.startTime, batch.totalRecords).toFixed(2) }}
+                  </span>
+                </td>
                 <td>
                   <span class="status-badge status-running">
                     <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -306,12 +313,18 @@
               <span class="mobile-card-value text-xs">{{ formatDateTime(batch.startTime) }}</span>
             </div>
             <div class="mobile-card-row">
-              <span class="mobile-card-label">Threads</span>
-              <span class="mobile-card-value">{{ batch.threadCount }}</span>
+              <span class="mobile-card-label">Duration</span>
+              <span class="mobile-card-value font-medium">{{ getRunningDuration(batch.startTime) }}</span>
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">Records</span>
               <span class="mobile-card-value">{{ (batch.totalRecords || 0).toLocaleString() }}</span>
+            </div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">RPS (Live)</span>
+              <span :class="getRpsClass(calculateRunningRPS(batch.startTime, batch.totalRecords))" class="font-semibold text-sm">
+                {{ calculateRunningRPS(batch.startTime, batch.totalRecords).toFixed(2) }}
+              </span>
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">Status</span>
@@ -446,20 +459,31 @@
                 <td class="font-semibold">{{ batch.batchCode }}</td>
                 <td>
                   <span :class="getStatusClass(batch.statusCode)" class="status-badge">
-                    {{ batch.status }}
+                    {{ getStatusText(batch.statusCode, batch.status) }}
                   </span>
                 </td>
                 <td class="text-gray-600">{{ formatDate(batch.businessDate) }}</td>
                 <td class="text-gray-600 text-xs">{{ formatDateTime(batch.startTime) }}</td>
-                <td class="text-gray-600 text-xs">{{ formatDateTime(batch.endTime) }}</td>
+                <td class="text-gray-600 text-xs">
+                  {{ batch.statusCode === 'ST' ? '---' : formatDateTime(batch.endTime) }}
+                </td>
                 <td class="text-gray-600">
-                  <div class="font-semibold">{{ batch.totalDuration.toLocaleString() }}s</div>
-                  <div class="text-xs text-gray-400">{{ formatDurationHours(batch.totalDuration) }}</div>
+                  <div v-if="batch.statusCode === 'ST'" class="font-semibold text-green-600">
+                    {{ getRunningDuration(batch.startTime) }} (Live)
+                  </div>
+                  <div v-else>
+                    <div class="font-semibold">{{ batch.totalDuration.toLocaleString() }}s</div>
+                    <div class="text-xs text-gray-400">{{ formatDurationHours(batch.totalDuration) }}</div>
+                  </div>
                 </td>
                 <td class="text-gray-600">{{ batch.threadCount }}</td>
                 <td class="text-gray-600">{{ batch.totalRecords.toLocaleString() }}</td>
                 <td>
-                  <span :class="getRpsClass(batch.rps)" class="font-semibold">
+                  <span v-if="batch.statusCode === 'ST'" :class="getRpsClass(calculateRunningRPS(batch.startTime, batch.totalRecords))" class="font-semibold">
+                    {{ calculateRunningRPS(batch.startTime, batch.totalRecords).toFixed(2) }}
+                    <span class="text-xs text-green-600">LIVE</span>
+                  </span>
+                  <span v-else :class="getRpsClass(batch.rps)" class="font-semibold">
                     {{ batch.rps.toFixed(2) }}
                   </span>
                 </td>
@@ -478,7 +502,7 @@
             <div class="mobile-card-row">
               <span class="mobile-card-label">Status</span>
               <span :class="getStatusClass(batch.statusCode)" class="status-badge text-xs">
-                {{ batch.status }}
+                {{ getStatusText(batch.statusCode, batch.status) }}
               </span>
             </div>
             <div class="mobile-card-row">
@@ -488,8 +512,13 @@
             <div class="mobile-card-row">
               <span class="mobile-card-label">Duration</span>
               <span class="mobile-card-value">
-                <div class="font-semibold">{{ batch.totalDuration.toLocaleString() }}s</div>
-                <div class="text-xs text-gray-400">{{ formatDurationHours(batch.totalDuration) }}</div>
+                <div v-if="batch.statusCode === 'ST'" class="font-semibold text-green-600">
+                  {{ getRunningDuration(batch.startTime) }} (Live)
+                </div>
+                <div v-else>
+                  <div class="font-semibold">{{ batch.totalDuration.toLocaleString() }}s</div>
+                  <div class="text-xs text-gray-400">{{ formatDurationHours(batch.totalDuration) }}</div>
+                </div>
               </span>
             </div>
             <div class="mobile-card-row">
@@ -502,7 +531,11 @@
             </div>
             <div class="mobile-card-row">
               <span class="mobile-card-label">RPS</span>
-              <span :class="getRpsClass(batch.rps)" class="font-semibold">
+              <span v-if="batch.statusCode === 'ST'" :class="getRpsClass(calculateRunningRPS(batch.startTime, batch.totalRecords))" class="font-semibold text-sm">
+                {{ calculateRunningRPS(batch.startTime, batch.totalRecords).toFixed(2) }}
+                <span class="text-xs text-green-600">LIVE</span>
+              </span>
+              <span v-else :class="getRpsClass(batch.rps)" class="font-semibold">
                 {{ batch.rps.toFixed(2) }}
               </span>
             </div>
@@ -578,11 +611,9 @@ import {
   getActiveAlerts
 } from '@/services/ami-operational.api';
 import Chart from 'chart.js/auto';
-import BatchTimelineComponent from '@/components/BatchTimelineComponent.vue';
 import BatchAlertsComponent from '@/components/BatchAlertsComponent.vue';
 
 // Component refs
-const batchTimelineRef = ref(null);
 const batchAlertsRef = ref(null);
 
 // State - Individual loading states for progressive loading
@@ -829,9 +860,6 @@ const refreshAllData = () => {
   loadActiveAlertsCount();
 
   // Refresh child components
-  if (batchTimelineRef.value) {
-    batchTimelineRef.value.refreshTimeline();
-  }
   if (batchAlertsRef.value) {
     batchAlertsRef.value.refreshAlerts();
   }
@@ -927,6 +955,11 @@ const formatDurationHours = (seconds) => {
 };
 
 const getStatusClass = (statusCode) => {
+  // Treat null or empty status as Error
+  if (!statusCode || statusCode === null || statusCode === '') {
+    return 'px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full';
+  }
+
   const classes = {
     'ST': 'px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full',
     'ED': 'px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full',
@@ -934,7 +967,15 @@ const getStatusClass = (statusCode) => {
     'ER': 'px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full',
     'PD': 'px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full'
   };
-  return classes[statusCode] || 'px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full';
+  return classes[statusCode] || 'px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full';
+};
+
+// Get status text (handle null as Error)
+const getStatusText = (statusCode, statusText) => {
+  if (!statusCode || statusCode === null || statusCode === '') {
+    return 'Error';
+  }
+  return statusText || statusCode;
 };
 
 const getRpsClass = (rps) => {
@@ -943,6 +984,44 @@ const getRpsClass = (rps) => {
   if (rps >= 20) return 'font-medium text-yellow-600';
   return 'font-medium text-red-600';
 };
+
+// Calculate real-time RPS for running batches: RPS = Records / Duration
+const calculateRunningRPS = (startTime, recordsProcessed) => {
+  if (!startTime || !recordsProcessed) return 0;
+
+  const start = new Date(startTime).getTime();
+  const now = Date.now();
+  const durationSeconds = Math.floor((now - start) / 1000);
+
+  if (durationSeconds <= 0) return 0;
+
+  const rps = recordsProcessed / durationSeconds;
+  return Math.round(rps * 100) / 100;
+};
+
+// Get running duration in human-readable format
+const getRunningDuration = (startTime) => {
+  if (!startTime) return '0m';
+
+  const start = new Date(startTime).getTime();
+  const now = Date.now();
+  const diffMs = now - start;
+  const diffMinutes = Math.floor(diffMs / 1000 / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const remainingMinutes = diffMinutes % 60;
+
+  if (diffHours > 0) {
+    return `${diffHours}h ${remainingMinutes}m`;
+  }
+  return `${diffMinutes}m`;
+};
+
+// Get D1-IMD batch RPS if it's running
+const d1ImdRps = computed(() => {
+  const d1ImdBatch = runningBatches.value.find(b => b.batchCode === 'D1-IMD');
+  if (!d1ImdBatch) return null;
+  return calculateRunningRPS(d1ImdBatch.startTime, d1ImdBatch.totalRecords);
+});
 
 // Chart functions
 const updateCharts = () => {

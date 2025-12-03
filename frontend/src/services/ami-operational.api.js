@@ -87,6 +87,30 @@ export const acknowledgeAlert = (alertId) => {
   return api.post(`/ami-operational/acknowledge-alert/${alertId}`);
 };
 
+/**
+ * Get Batch Statistics from monitoring history
+ * @param {string} batchCode - Filter by batch code (optional)
+ * @param {number} hours - Number of hours to look back (default 24)
+ * @returns {Promise} Response with batch statistics
+ */
+export const getBatchStatistics = (batchCode = null, hours = 24) => {
+  const params = { hours };
+  if (batchCode) params.batchCode = batchCode;
+  return api.get('/ami-operational/batch-statistics', { params });
+};
+
+/**
+ * Get Batch Monitoring History (RPS and Records tracking)
+ * @param {string} batchCode - Filter by batch code (optional)
+ * @param {number} limit - Number of records to return (default 50)
+ * @returns {Promise} Response with monitoring history
+ */
+export const getBatchMonitoringHistory = (batchCode = null, limit = 50) => {
+  const params = { limit };
+  if (batchCode) params.batchCode = batchCode;
+  return api.get('/ami-operational/batch-monitoring-history', { params });
+};
+
 export default {
   getPendingIMDCount,
   getBillCount,
@@ -96,5 +120,7 @@ export default {
   getBatchLogs,
   getBatchTimeline,
   getBatchHealth,
-  acknowledgeAlert
+  acknowledgeAlert,
+  getBatchStatistics,
+  getBatchMonitoringHistory
 };

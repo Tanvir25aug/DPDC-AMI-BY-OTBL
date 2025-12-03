@@ -77,7 +77,6 @@ const getRunningBatches = async (req, res) => {
         run.BATCH_CD,
         job.BATCH_JOB_STAT_FLG,
         run.START_DTTM,
-        BATCH_THREAD_CNT,
         batch_bus_dt,
         SUM(rec_proc_cnt) as TOTAL_RECORDS
       FROM CI_BATCH_job job
@@ -85,8 +84,8 @@ const getRunningBatches = async (req, res) => {
       JOIN CI_BATCH_INST inst ON run.batch_nbr = inst.batch_nbr AND job.batch_nbr = inst.batch_nbr
       WHERE job.BATCH_JOB_STAT_FLG = 'ST'
         AND run.BATCH_CD = inst.BATCH_CD
-        AND run.batch_cd NOT IN ('F1-FLUSH', 'C1-WFSUB')
-      GROUP BY run.BATCH_CD, job.BATCH_JOB_STAT_FLG, run.START_DTTM, BATCH_THREAD_CNT, batch_bus_dt
+        AND run.batch_cd NOT IN ('F1-FLUSH', 'C1-WFSUB', 'BILLRESTSMS', 'C1-PPBTR')
+      GROUP BY run.BATCH_CD, job.BATCH_JOB_STAT_FLG, run.START_DTTM, batch_bus_dt
       ORDER BY run.START_DTTM DESC`
     );
 
@@ -95,7 +94,6 @@ const getRunningBatches = async (req, res) => {
       batchCode: row.BATCH_CD,
       status: 'Running',
       startTime: row.START_DTTM,
-      threadCount: row.BATCH_THREAD_CNT,
       businessDate: row.BATCH_BUS_DT,
       totalRecords: row.TOTAL_RECORDS || 0
     }));
@@ -134,7 +132,6 @@ const getBatchPerformance = async (req, res) => {
         job.BATCH_JOB_STAT_FLG,
         run.START_DTTM,
         run.END_DTTM,
-        BATCH_THREAD_CNT,
         (END_DTTM - START_DTTM) * 24 * 60 * 60 as TOTAL_DURATION,
         SUM(rec_proc_cnt) as TOTAL_RECORDS,
         DECODE((END_DTTM - START_DTTM) * 24 * 60 * 60, 0, 0,
@@ -145,8 +142,8 @@ const getBatchPerformance = async (req, res) => {
       JOIN CI_BATCH_INST inst ON run.batch_nbr = inst.batch_nbr AND job.batch_nbr = inst.batch_nbr
       WHERE batch_bus_dt BETWEEN TO_DATE(:startDate, 'YYYY-MM-DD') AND TO_DATE(:endDate, 'YYYY-MM-DD')
         AND run.BATCH_CD = inst.BATCH_CD
-        AND run.batch_cd NOT IN ('F1-FLUSH', 'C1-WFSUB')
-      GROUP BY run.BATCH_CD, job.BATCH_JOB_STAT_FLG, run.START_DTTM, run.END_DTTM, BATCH_THREAD_CNT, batch_bus_dt
+        AND run.batch_cd NOT IN ('F1-FLUSH', 'C1-WFSUB', 'BILLRESTSMS', 'C1-PPBTR')
+      GROUP BY run.BATCH_CD, job.BATCH_JOB_STAT_FLG, run.START_DTTM, run.END_DTTM, batch_bus_dt
       ORDER BY batch_bus_dt DESC, run.START_DTTM DESC`,
       {
         startDate: startDate || defaultStartDate,
@@ -156,18 +153,22 @@ const getBatchPerformance = async (req, res) => {
     );
 
     // Format the data
-    const performance = result.rows.map(row => ({
-      batchCode: row.BATCH_CD,
-      status: getStatusLabel(row.BATCH_JOB_STAT_FLG),
-      statusCode: row.BATCH_JOB_STAT_FLG,
-      startTime: row.START_DTTM,
-      endTime: row.END_DTTM,
-      threadCount: row.BATCH_THREAD_CNT,
-      totalDuration: Math.round(row.TOTAL_DURATION || 0),
-      totalRecords: row.TOTAL_RECORDS || 0,
-      rps: Math.round((row.RPS || 0) * 100) / 100,
-      businessDate: row.BATCH_BUS_DT
-    }));
+    const performance = result.rows.map(row => {
+      // Treat null or empty status code as 'ER' (Error)
+      const statusCode = row.BATCH_JOB_STAT_FLG || 'ER';
+
+      return {
+        batchCode: row.BATCH_CD,
+        status: getStatusLabel(statusCode),
+        statusCode: statusCode,
+        startTime: row.START_DTTM,
+        endTime: row.END_DTTM,
+        totalDuration: Math.round(row.TOTAL_DURATION || 0),
+        totalRecords: row.TOTAL_RECORDS || 0,
+        rps: Math.round((row.RPS || 0) * 100) / 100,
+        businessDate: row.BATCH_BUS_DT
+      };
+    });
 
     res.json({
       success: true,
@@ -191,8 +192,14 @@ const getBatchPerformance = async (req, res) => {
 
 /**
  * Helper function to get status label
+ * Treats null or empty status as 'Error'
  */
 const getStatusLabel = (statusCode) => {
+  // Handle null or empty status as Error
+  if (!statusCode || statusCode === null || statusCode === '') {
+    return 'Error';
+  }
+
   const statusMap = {
     'ST': 'Running',
     'PD': 'Pending',
@@ -200,7 +207,7 @@ const getStatusLabel = (statusCode) => {
     'ER': 'Error',
     'CM': 'Complete'
   };
-  return statusMap[statusCode] || statusCode;
+  return statusMap[statusCode] || 'Error'; // Default to Error for unknown codes
 };
 
 /**
@@ -346,13 +353,25 @@ const getBatchLogs = async (req, res) => {
 
 /**
  * Get Batch Workflow Timeline
+ * Fetches real-time batch status from Oracle CC&B
+ * Shows workflows for:
+ *   1. Today's business date (always shown)
+ *   2. Yesterday's business date (always shown)
+ *   3. Business dates with active/running batches
+ * Running batches are shown under TODAY regardless of their business_date
+ * Uses Dhaka, Bangladesh timezone (UTC+6)
  */
 const getBatchTimeline = async (req, res) => {
   try {
     const sequelize = require('../config/database');
-    const today = new Date().toISOString().split('T')[0];
 
-    // Get workflow configuration
+    // Use Dhaka timezone (UTC+6)
+    const dhakaOffset = 6 * 60; // +6 hours in minutes
+    const now = new Date();
+    const dhakaTime = new Date(now.getTime() + (dhakaOffset * 60 * 1000));
+    const today = dhakaTime.toISOString().split('T')[0];
+
+    // Get workflow configuration (excluding specific batch codes)
     const [workflow] = await sequelize.query(
       `SELECT
         batch_code,
@@ -366,51 +385,189 @@ const getBatchTimeline = async (req, res) => {
         can_run_multiple
       FROM batch_workflow_config
       WHERE enabled = true
+        AND batch_code NOT IN ('F1-FLUSH', 'C1-WFSUB', 'BILLRESTSMS', 'C1-PPBTR')
       ORDER BY sequence_order`
     );
 
-    // Get today's batch execution status
-    const [todayStatus] = await sequelize.query(
+    // Determine which business dates to show
+    // Only show today's timeline
+    const businessDatesToShow = new Set();
+
+    // Always include today
+    businessDatesToShow.add(today);
+
+    // Convert to sorted array (most recent first)
+    const businessDates = Array.from(businessDatesToShow).sort((a, b) => {
+      return new Date(b) - new Date(a);
+    });
+
+    // Get real-time batch status from Oracle for relevant business dates
+    // Fetch data from last 2 days to cover running batches that started yesterday
+    const batchStatusResult = await executeQuery(
       `SELECT
-        TRIM(batch_code) as batch_code,
-        status,
-        start_time,
-        end_time,
-        duration_seconds,
-        records_processed,
-        rps
-      FROM batch_execution_logs
-      WHERE business_date = :today
-        AND id IN (
-          SELECT MAX(id)
-          FROM batch_execution_logs
-          WHERE business_date = :today
-          GROUP BY batch_code
-        )`,
-      { replacements: { today } }
+        TRIM(run.BATCH_CD) as BATCH_CD,
+        job.BATCH_JOB_STAT_FLG,
+        run.START_DTTM,
+        run.END_DTTM,
+        run.batch_bus_dt,
+        SUM(inst.rec_proc_cnt) as TOTAL_RECORDS,
+        (run.END_DTTM - run.START_DTTM) * 24 * 60 * 60 as DURATION_SECONDS,
+        DECODE((run.END_DTTM - run.START_DTTM) * 24 * 60 * 60, 0, 0,
+          (SUM(inst.rec_proc_cnt) / ((run.END_DTTM - run.START_DTTM) * 24 * 60 * 60))) as RPS,
+        run.batch_nbr,
+        ROW_NUMBER() OVER (PARTITION BY TRIM(run.BATCH_CD), run.batch_bus_dt ORDER BY run.START_DTTM DESC) as rn
+      FROM CI_BATCH_JOB job
+      JOIN CI_BATCH_RUN run ON job.batch_cd = run.batch_cd AND job.batch_nbr = run.batch_nbr
+      LEFT JOIN CI_BATCH_INST inst ON run.batch_nbr = inst.batch_nbr AND run.BATCH_CD = inst.BATCH_CD
+      WHERE run.batch_bus_dt >= TRUNC(SYSDATE) - 2
+        AND run.BATCH_CD NOT IN ('F1-FLUSH', 'C1-WFSUB', 'BILLRESTSMS', 'C1-PPBTR')
+      GROUP BY run.BATCH_CD, job.BATCH_JOB_STAT_FLG, run.START_DTTM, run.END_DTTM,
+               run.batch_bus_dt, run.batch_nbr
+      ORDER BY run.batch_bus_dt DESC, run.BATCH_CD, run.START_DTTM DESC`
     );
 
-    // Merge workflow with today's status
-    const timeline = workflow.map(batch => {
-      const todayBatch = todayStatus.find(t => t.batch_code.trim() === batch.batch_code.trim());
-      return {
-        ...batch,
-        todayStatus: todayBatch ? {
-          status: todayBatch.status,
-          start_time: todayBatch.start_time,
-          end_time: todayBatch.end_time,
-          duration_seconds: todayBatch.duration_seconds,
-          records_processed: todayBatch.records_processed,
-          rps: todayBatch.rps
-        } : null
+    // Get pending IMD count (for last 2 days)
+    const imdCountResult = await executeQuery(
+      `SELECT
+        COUNT(*) as count,
+        TRUNC(cre_dttm) as business_date
+       FROM d1_imd_ctrl
+       WHERE bo_status_cd = 'PENDING'
+         AND TRUNC(cre_dttm) >= TRUNC(SYSDATE) - 2
+       GROUP BY TRUNC(cre_dttm)
+       ORDER BY TRUNC(cre_dttm) DESC`
+    );
+
+    // Map pending IMD count by business date
+    const pendingIMDByDate = {};
+    let totalPendingIMD = 0;
+
+    imdCountResult.rows.forEach(row => {
+      const businessDate = new Date(row.BUSINESS_DATE).toISOString().split('T')[0];
+      const count = row.COUNT || 0;
+      pendingIMDByDate[businessDate] = count;
+      totalPendingIMD += count;
+    });
+
+    // Final business dates (no need to re-sort, already sorted)
+    const finalBusinessDates = businessDates;
+
+    // Process batch status data - GROUP BY BUSINESS DATE
+    const batchDataByDate = {};
+
+    // Debug: Log all fetched batches
+    console.log('[getBatchTimeline] Fetched', batchStatusResult.rows.length, 'batch rows from Oracle');
+
+    batchStatusResult.rows.forEach(row => {
+      const batchCode = row.BATCH_CD.trim();
+      // Treat null or empty status code as 'ER' (Error)
+      const statusCode = row.BATCH_JOB_STAT_FLG || 'ER';
+      const originalBusinessDate = new Date(row.BATCH_BUS_DT).toISOString().split('T')[0];
+
+      // Debug: Log batch data
+      console.log('[getBatchTimeline] Batch:', batchCode, 'Status:', statusCode, 'BusDate:', originalBusinessDate);
+
+      // For RUNNING batches, show them under TODAY instead of their original business_date
+      // For other statuses, keep original business_date
+      const businessDate = (statusCode === 'ST') ? today : originalBusinessDate;
+
+      // Map status codes
+      const statusMap = {
+        'ST': 'Running',
+        'ED': 'Ended',
+        'CM': 'Complete',
+        'ER': 'Error',
+        'PD': 'Pending'
       };
+
+      const batchInfo = {
+        batch_code: batchCode,
+        status: statusMap[statusCode] || 'Error',
+        statusCode: statusCode,
+        start_time: row.START_DTTM,
+        end_time: row.END_DTTM,
+        duration_seconds: Math.round(row.DURATION_SECONDS || 0),
+        records_processed: row.TOTAL_RECORDS || 0,
+        rps: Math.round((row.RPS || 0) * 100) / 100,
+        business_date: row.BATCH_BUS_DT,
+        batch_nbr: row.BATCH_NBR
+      };
+
+      // Initialize date if not exists
+      if (!batchDataByDate[businessDate]) {
+        batchDataByDate[businessDate] = {
+          batchStatusMap: {},
+          batchAllRuns: {}
+        };
+      }
+
+      const dateData = batchDataByDate[businessDate];
+
+      // Store latest run per batch per date (rn = 1)
+      if (!dateData.batchStatusMap[batchCode]) {
+        dateData.batchStatusMap[batchCode] = batchInfo;
+      }
+
+      // Store all runs for this batch on this date
+      if (!dateData.batchAllRuns[batchCode]) {
+        dateData.batchAllRuns[batchCode] = [];
+      }
+      dateData.batchAllRuns[batchCode].push(batchInfo);
+    });
+
+    // Create timelines for each relevant business date
+    const timelines = [];
+
+    finalBusinessDates.forEach(businessDate => {
+      const dateData = batchDataByDate[businessDate] || { batchStatusMap: {}, batchAllRuns: {} };
+      const pendingIMDForThisDate = pendingIMDByDate[businessDate] || 0;
+
+      const timeline = workflow.map(batch => {
+        const batchCode = batch.batch_code.trim();
+        const latestRun = dateData.batchStatusMap[batchCode];
+        const allRuns = dateData.batchAllRuns[batchCode] || [];
+
+        // Special logic for D1-IMD - check if it needs to run for THIS business date
+        let needsToRun = false;
+        if (batchCode === 'D1-IMD' && pendingIMDForThisDate > 0) {
+          const isRunning = latestRun && latestRun.statusCode === 'ST';
+          needsToRun = !isRunning; // Needs to run if there are pending IMDs and it's not currently running
+        }
+
+        return {
+          ...batch,
+          todayStatus: latestRun ? {
+            status: latestRun.status,
+            statusCode: latestRun.statusCode,
+            start_time: latestRun.start_time,
+            end_time: latestRun.end_time,
+            duration_seconds: latestRun.duration_seconds,
+            records_processed: latestRun.records_processed,
+            rps: latestRun.rps,
+            business_date: latestRun.business_date,
+            batch_nbr: latestRun.batch_nbr
+          } : null,
+          allRuns: allRuns,
+          totalRuns: allRuns.length,
+          pendingIMDCount: (batchCode === 'D1-IMD') ? pendingIMDForThisDate : undefined,
+          needsToRun: (batchCode === 'D1-IMD') ? needsToRun : undefined
+        };
+      });
+
+      timelines.push({
+        businessDate: businessDate,
+        timeline: timeline
+      });
     });
 
     res.json({
       success: true,
       data: {
-        timeline: timeline,
-        businessDate: today
+        timelines: timelines,
+        totalPendingIMD: totalPendingIMD,
+        pendingIMDByDate: pendingIMDByDate,
+        currentTime: dhakaTime.toISOString(),
+        lastUpdated: dhakaTime.toISOString()
       }
     });
   } catch (error) {
@@ -519,6 +676,126 @@ const acknowledgeAlert = async (req, res) => {
   }
 };
 
+/**
+ * Diagnostic: Get Raw Batch Data from Oracle
+ * Helps debug what data is actually in Oracle
+ */
+const getDiagnosticBatchData = async (req, res) => {
+  try {
+    // Check running batches
+    const runningResult = await executeQuery(
+      `SELECT
+        TRIM(run.BATCH_CD) as BATCH_CD,
+        job.BATCH_JOB_STAT_FLG,
+        run.START_DTTM,
+        run.batch_bus_dt,
+        run.batch_nbr
+      FROM CI_BATCH_JOB job
+      JOIN CI_BATCH_RUN run ON job.batch_cd = run.batch_cd AND job.batch_nbr = run.batch_nbr
+      WHERE job.BATCH_JOB_STAT_FLG = 'ST'
+        AND run.BATCH_CD NOT IN ('F1-FLUSH', 'C1-WFSUB', 'BILLRESTSMS', 'C1-PPBTR')
+      ORDER BY run.START_DTTM DESC`
+    );
+
+    // Check recent batches (last 3 days)
+    const recentResult = await executeQuery(
+      `SELECT
+        TRIM(run.BATCH_CD) as BATCH_CD,
+        job.BATCH_JOB_STAT_FLG,
+        run.START_DTTM,
+        run.END_DTTM,
+        run.batch_bus_dt,
+        run.batch_nbr
+      FROM CI_BATCH_JOB job
+      JOIN CI_BATCH_RUN run ON job.batch_cd = run.batch_cd AND job.batch_nbr = run.batch_nbr
+      WHERE run.batch_bus_dt >= TRUNC(SYSDATE) - 3
+        AND run.BATCH_CD NOT IN ('F1-FLUSH', 'C1-WFSUB', 'BILLRESTSMS', 'C1-PPBTR')
+      ORDER BY run.batch_bus_dt DESC, run.START_DTTM DESC
+      FETCH FIRST 50 ROWS ONLY`
+    );
+
+    // Get current Oracle time
+    const oracleTimeResult = await executeQuery(
+      `SELECT SYSDATE as CURRENT_TIME, TRUNC(SYSDATE) as CURRENT_DATE FROM DUAL`
+    );
+
+    res.json({
+      success: true,
+      data: {
+        runningBatches: runningResult.rows,
+        runningCount: runningResult.rows.length,
+        recentBatches: recentResult.rows,
+        recentCount: recentResult.rows.length,
+        oracleTime: oracleTimeResult.rows[0]
+      }
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Diagnostic error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Diagnostic query failed',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get Batch Statistics (from PostgreSQL monitoring history)
+ */
+const getBatchStatistics = async (req, res) => {
+  try {
+    const { batchCode, hours = 24 } = req.query;
+    const batchMonitoringService = require('../services/batch-monitoring.service');
+
+    let statistics;
+    if (batchCode) {
+      statistics = await batchMonitoringService.getBatchStatistics(batchCode, hours);
+    } else {
+      statistics = await batchMonitoringService.getAllBatchStatistics(hours);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        statistics
+      }
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Error getting batch statistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get batch statistics',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Get Recent Batch Monitoring History
+ */
+const getBatchMonitoringHistory = async (req, res) => {
+  try {
+    const { batchCode, limit = 50 } = req.query;
+    const batchMonitoringService = require('../services/batch-monitoring.service');
+
+    const history = await batchMonitoringService.getRecentMonitoringHistory(batchCode, limit);
+
+    res.json({
+      success: true,
+      data: {
+        history
+      }
+    });
+  } catch (error) {
+    console.error('[AMI Operational] Error getting batch monitoring history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get batch monitoring history',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getPendingIMDCount,
   getBillCount,
@@ -528,5 +805,9 @@ module.exports = {
   getBatchLogs,
   getBatchTimeline,
   getBatchHealth,
-  acknowledgeAlert
+  acknowledgeAlert,
+  getDiagnosticBatchData,
+  getBatchStatistics,
+  getBatchMonitoringHistory
 };
+

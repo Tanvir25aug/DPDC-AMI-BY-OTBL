@@ -13,6 +13,9 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const nocsBalanceScheduler = require('./services/nocs-balance-scheduler.service');
 const batchMonitoringScheduler = require('./schedulers/batch-monitoring.scheduler');
+const teamsService = require('./services/teams.service');
+const teamsReportsScheduler = require('./schedulers/teams-reports.scheduler');
+const teamsWebhooks = require('./config/teams-webhooks');
 
 const app = express();
 // Trust only the first proxy (Nginx) for X-Forwarded-For headers
@@ -80,7 +83,16 @@ async function startServer() {
     // Start Batch Monitoring Scheduler
     logger.info('========================================');
     await batchMonitoringScheduler.startScheduler();
-    logger.info('✅ Batch Monitoring Scheduler started (runs every 15 minutes)');
+    logger.info('✅ Batch Monitoring Scheduler started (runs every 30 minutes)');
+    logger.info('========================================');
+
+    // Initialize Teams service and start reports scheduler
+    logger.info('========================================');
+    logger.info('Initializing Microsoft Teams integration...');
+    teamsService.initialize(teamsWebhooks.DEFAULT);
+    logger.info('✅ Teams service initialized');
+    await teamsReportsScheduler.startScheduler();
+    logger.info('✅ NOCS Balance Summary Scheduler started (runs every 60 minutes / 1 hour)');
     logger.info('========================================');
 
     // Start server
@@ -123,6 +135,12 @@ async function startServer() {
           // Stop schedulers
           nocsBalanceScheduler.stopScheduler();
           logger.info('NOCS Balance Scheduler stopped');
+
+          batchMonitoringScheduler.stopScheduler();
+          logger.info('Batch Monitoring Scheduler stopped');
+
+          teamsReportsScheduler.stopScheduler();
+          logger.info('Teams Reports Scheduler stopped');
 
           // Close database connections
           await sequelize.close();

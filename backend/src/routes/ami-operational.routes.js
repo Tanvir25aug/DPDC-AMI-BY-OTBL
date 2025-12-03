@@ -84,4 +84,29 @@ router.get('/batch-health', amiOperationalController.getBatchHealth);
  */
 router.post('/acknowledge-alert/:id', amiOperationalController.acknowledgeAlert);
 
+/**
+ * @route   GET /api/ami-operational/diagnostic
+ * @desc    Get diagnostic batch data from Oracle (for debugging)
+ * @access  Private (requires authentication)
+ */
+router.get('/diagnostic', amiOperationalController.getDiagnosticBatchData);
+
+/**
+ * @route   GET /api/ami-operational/batch-statistics
+ * @desc    Get batch performance statistics from monitoring history
+ * @query   batchCode - Filter by batch code (optional)
+ * @query   hours - Number of hours to look back (optional, default 24)
+ * @access  Private (requires authentication)
+ */
+router.get('/batch-statistics', amiOperationalController.getBatchStatistics);
+
+/**
+ * @route   GET /api/ami-operational/batch-monitoring-history
+ * @desc    Get recent batch monitoring history (RPS, Records tracking)
+ * @query   batchCode - Filter by batch code (optional)
+ * @query   limit - Number of records to return (optional, default 50)
+ * @access  Private (requires authentication)
+ */
+router.get('/batch-monitoring-history', amiOperationalController.getBatchMonitoringHistory);
+
 module.exports = router;
