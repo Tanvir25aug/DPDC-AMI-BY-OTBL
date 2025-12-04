@@ -93,5 +93,7 @@ LEFT JOIN (
     WHERE freeze_sw = 'Y'
     GROUP BY sa_id
 ) bal ON bal.sa_id = sa.sa_id
-WHERE sp.sp_id IS NOT NULL  -- Only return records with valid service points
-ORDER BY m.METER_NO NULLS LAST, cpc.CPC_CUSTOMER_NO
+ORDER BY
+    CASE WHEN sp.sp_id IS NOT NULL THEN 0 ELSE 1 END,  -- Show complete records first
+    m.METER_NO NULLS LAST,
+    cpc.CPC_CUSTOMER_NO
