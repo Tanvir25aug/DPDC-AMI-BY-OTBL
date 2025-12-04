@@ -24,6 +24,12 @@ class TeamsService {
    */
   async sendTextMessage(text) {
     try {
+      // Skip Teams messages in development environment
+      if (process.env.NODE_ENV !== 'production') {
+        logger.info('[Teams] Skipping message in development environment');
+        return { success: true, skipped: true, reason: 'Development environment' };
+      }
+
       if (!this.webhookUrl) {
         throw new Error('Teams webhook URL not configured');
       }
@@ -51,6 +57,12 @@ class TeamsService {
    */
   async sendAdaptiveCard(card) {
     try {
+      // Skip Teams messages in development environment
+      if (process.env.NODE_ENV !== 'production') {
+        logger.info('[Teams] Skipping message in development environment');
+        return { success: true, skipped: true, reason: 'Development environment' };
+      }
+
       if (!this.webhookUrl) {
         throw new Error('Teams webhook URL not configured');
       }
