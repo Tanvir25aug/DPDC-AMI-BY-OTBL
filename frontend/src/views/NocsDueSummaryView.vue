@@ -61,7 +61,7 @@
             </div>
             <div class="stat-content">
               <p class="stat-label">Total Due</p>
-              <p class="stat-value">৳{{ formatCurrency(totalDue) }}</p>
+              <p class="stat-value">-৳{{ formatCurrency(totalDue) }}</p>
             </div>
           </div>
           <div class="stat-card credit">
@@ -124,7 +124,7 @@
               <div class="financial-summary">
                 <div class="financial-row due-row">
                   <span class="financial-label">Total Due:</span>
-                  <span class="financial-value">৳{{ formatCurrency(summary.TOTAL_DUE) }}</span>
+                  <span class="financial-value">-৳{{ formatCurrency(summary.TOTAL_DUE) }}</span>
                 </div>
                 <div class="financial-row credit-row">
                   <span class="financial-label">Total Credit:</span>
@@ -133,7 +133,7 @@
                 <div class="financial-row net-row">
                   <span class="financial-label">Net Balance:</span>
                   <span class="financial-value" :class="{ 'positive': summary.NET_BALANCE > 0, 'negative': summary.NET_BALANCE < 0 }">
-                    ৳{{ formatCurrency(summary.NET_BALANCE) }}
+                    {{ summary.NET_BALANCE > 0 ? '-' : '' }}৳{{ formatCurrency(Math.abs(summary.NET_BALANCE)) }}
                   </span>
                 </div>
               </div>

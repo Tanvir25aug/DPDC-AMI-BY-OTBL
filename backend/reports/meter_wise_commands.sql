@@ -20,7 +20,7 @@ inner join d1_dvc_identifier i on i.D1_DEVICE_ID=h.D1_DEVICE_ID
 inner join D1_ACTIVITY_REL_OBJ k on k.PK_VALUE1=h.D1_DEVICE_ID and k.MAINT_OBJ_CD='D1-DEVICE'
 inner join ci_prem_char pc on pc.prem_id=a.mailing_prem_id and pc.char_type_cd = 'CM_NOCS'
 inner join ci_char_val_l vl on vl.char_val=pc.char_val
-inner join d1_activity partition(p2025NOV) l on l.D1_ACTIVITY_ID=k.D1_ACTIVITY_ID and l.activity_type_cd in ('REMOTEDISCONNECT','REMOTECONNECT')
+inner join d1_activity partition(p2025DEC) l on l.D1_ACTIVITY_ID=k.D1_ACTIVITY_ID and l.activity_type_cd in ('REMOTEDISCONNECT','REMOTECONNECT')
 where trunc(l.cre_dttm) = trunc(SYSDATE)
 and l.BUS_OBJ_CD in ('D1-RemoteConnect', 'D1-RemoteDisconnect')
 and l.BO_STATUS_CD in ('COMPLETED', 'COMINPROG', 'DISCARDED')

@@ -699,6 +699,7 @@ import AppCard from '@/components/common/AppCard.vue';
 import AppTable from '@/components/common/AppTable.vue';
 import AppAlert from '@/components/common/AppAlert.vue';
 import jsPDF from 'jspdf';
+import dpdcLogo from '@/assets/DPDC_Logo.png';
 
 const reportsStore = useReportsStore();
 
@@ -793,6 +794,44 @@ const toggleRealtimeUpdates = async () => {
 };
 
 /**
+ * Helper function to load image as base64 for jsPDF with high quality
+ */
+const loadImageAsBase64 = (imageSrc) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+
+      // Use higher resolution for better quality
+      const scale = 2; // 2x scale for better quality
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+
+      const ctx = canvas.getContext('2d');
+
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      // Draw image with scaling
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+
+      try {
+        // Export as PNG with maximum quality
+        const base64 = canvas.toDataURL('image/png', 1.0);
+        resolve(base64);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+};
+
+/**
  * Download Dashboard as PDF
  * Creates a text-based PDF with dashboard stats and NOCS breakdown
  */
@@ -801,6 +840,16 @@ const downloadDashboardPDF = async () => {
 
   try {
     console.log('[Dashboard] Starting PDF generation...');
+
+    // Load DPDC logo as base64
+    let dpdcLogoBase64;
+    try {
+      dpdcLogoBase64 = await loadImageAsBase64(dpdcLogo);
+      console.log('[Dashboard] DPDC logo loaded successfully');
+    } catch (error) {
+      console.warn('[Dashboard] Failed to load DPDC logo:', error);
+      // Continue without logo if it fails to load
+    }
 
     // Create PDF in portrait format
     const pdf = new jsPDF({
@@ -814,250 +863,347 @@ const downloadDashboardPDF = async () => {
     const margin = 15;
     let y = 0;
 
-    // ========== HEADER ==========
-    // Draw header background
-    pdf.setFillColor(37, 99, 235); // Blue-600
-    pdf.rect(0, 0, pageWidth, 45, 'F');
+    // ========== HEADER SECTION (Matches NOCS PDF Style) ==========
+    // Gradient-like header background (180px / ~63.5mm tall)
+    pdf.setFillColor(30, 58, 138); // #1e3a8a - Dark blue
+    pdf.rect(0, 0, pageWidth, 63.5, 'F');
 
-    // DPDC Logo placeholder (left)
-    pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(margin, 8, 30, 30, 3, 3, 'F');
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('DPDC', margin + 15, 22, { align: 'center' });
-    pdf.setFontSize(6);
-    pdf.text('LOGO', margin + 15, 28, { align: 'center' });
+    // Gradient overlay (bottom 60px / ~21mm with opacity effect)
+    pdf.setFillColor(59, 130, 246); // #3b82f6 - Lighter blue
+    pdf.setGState(new pdf.GState({ opacity: 0.3 }));
+    pdf.rect(0, 42.3, pageWidth, 21.2, 'F');
+    pdf.setGState(new pdf.GState({ opacity: 1.0 }));
 
-    // OTBL Logo placeholder (right)
-    pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(pageWidth - margin - 30, 8, 30, 30, 3, 3, 'F');
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('OTBL', pageWidth - margin - 15, 22, { align: 'center' });
-    pdf.setFontSize(6);
-    pdf.text('LOGO', pageWidth - margin - 15, 28, { align: 'center' });
+    // DPDC Logo (Left) - 70x70px / ~24.7mm
+    if (dpdcLogoBase64) {
+      try {
+        pdf.addImage(dpdcLogoBase64, 'PNG', 12.3, 8.8, 24.7, 24.7);
+      } catch (error) {
+        console.warn('[Dashboard] Failed to add DPDC logo to PDF:', error);
+      }
+    }
 
-    // Main title (center)
+    // Main Title
     pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(22);
+    pdf.setFontSize(24);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('DPDC AMI RC/DC', pageWidth / 2, 25, { align: 'center' });
+    pdf.text('DPDC AMI RC/DC', pageWidth / 2, 15.9, { align: 'center' });
 
-    // Divider line
-    pdf.setDrawColor(255, 255, 255);
-    pdf.setLineWidth(0.5);
-    pdf.line(60, 32, pageWidth - 60, 32);
-
-    // Report date
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Report Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 40, { align: 'center' });
-
-    y = 55;
-
-    // ========== SUMMARY STATISTICS ==========
-    pdf.setTextColor(37, 99, 235);
+    // Subtitle
     pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Summary Statistics', margin, y);
-    y += 10;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(191, 219, 254); // #bfdbfe - Light blue
+    pdf.text('Dashboard Summary Report', pageWidth / 2, 25.4, { align: 'center' });
 
-    // Total Commands Box
-    pdf.setFillColor(238, 242, 255); // Light blue
-    pdf.roundedRect(margin, y, pageWidth - margin * 2, 25, 3, 3, 'F');
-    pdf.setTextColor(37, 99, 235);
+    // Report Info Box (White box with blue border)
+    pdf.setFillColor(255, 255, 255);
+    pdf.setDrawColor(219, 234, 254); // #dbeafe - Light blue border
+    pdf.setLineWidth(0.5);
+    pdf.rect(17.6, 42.3, pageWidth - 35.3, 15.9, 'FD');
+
+    // Report Generated label
+    pdf.setTextColor(30, 64, 175); // #1e40af - Blue
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Report Generated:', 24.7, 46.6);
+
+    // Report date value
+    pdf.setTextColor(71, 85, 105); // #475569 - Gray
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Total Commands', margin + 10, y + 10);
+    pdf.text(new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }), 24.7, 52.2);
+
+    // Report Type label
+    pdf.setTextColor(30, 64, 175);
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Report Type:', pageWidth - 98.8, 46.6);
+
+    // Report Type value
+    pdf.setTextColor(71, 85, 105);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Complete Dashboard', pageWidth - 98.8, 52.2);
+
+    y = 77.6;
+
+    // ========== SUMMARY STATISTICS SECTION ==========
+    pdf.setTextColor(30, 41, 59); // #1e293b - Dark gray
     pdf.setFontSize(20);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(String(analytics.value.totalCommands || 0), pageWidth - margin - 10, y + 17, { align: 'right' });
-    y += 32;
+    pdf.text('Summary Statistics', 17.6, y);
+    y += 14.1;
 
-    // ========== REMOTE CONNECT COMMANDS ==========
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(14);
+    // Total Commands Card (matches NOCS PDF drawStatCard style)
+    pdf.setFillColor(238, 242, 255); // #eef2ff - Light indigo
+    pdf.roundedRect(17.6, y, 174.6, 28.2, 2.8, 2.8, 'F');
+
+    // Colored left border (5mm wide)
+    pdf.setFillColor(99, 102, 241); // #6366f1 - Indigo
+    pdf.rect(17.6, y, 1.8, 28.2, 'F');
+
+    // Label
+    pdf.setTextColor(100, 116, 139); // #64748b - Gray
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Remote Connect Commands', margin, y);
-    y += 10;
+    pdf.text('Total Commands', 24.7, y + 5.3);
 
-    const boxWidth = (pageWidth - margin * 2 - 10) / 2;
-    const boxHeight = 35;
-
-    // RC Completed Box
-    pdf.setFillColor(220, 252, 231); // Light green
-    pdf.roundedRect(margin, y, boxWidth, boxHeight, 3, 3, 'F');
-    pdf.setTextColor(22, 163, 74); // Green
-    pdf.setFontSize(10);
+    // Value
+    pdf.setTextColor(99, 102, 241); // #6366f1 - Indigo
+    pdf.setFontSize(36);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Completed', margin + 10, y + 12);
-    pdf.setFontSize(18);
-    pdf.text(String(analytics.value.rcSuccess || 0), margin + 10, y + 25);
-    pdf.setFontSize(7);
+    pdf.text(String(analytics.value.totalCommands || 0), 24.7, y + 18);
+
+    y += 35.3;
+
+    // ========== REMOTE CONNECT SECTION ==========
+    pdf.setTextColor(5, 150, 105); // #059669 - Green
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Remote Connect Commands', 17.6, y);
+    y += 12.4;
+
+    // RC Completed Card
+    pdf.setFillColor(209, 250, 229); // #d1fae5 - Light green
+    pdf.roundedRect(17.6, y, 82.9, 31.8, 2.8, 2.8, 'F');
+    pdf.setFillColor(5, 150, 105); // #059669 - Green border
+    pdf.rect(17.6, y, 1.8, 31.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Completed', 24.7, y + 4.2);
+    pdf.setTextColor(5, 150, 105);
+    pdf.setFontSize(36);
+    pdf.text(String(analytics.value.rcSuccess || 0), 24.7, y + 15.9);
+    pdf.setTextColor(148, 163, 184); // #94a3b8 - Light gray
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Successfully connected', margin + 10, y + 31);
+    pdf.text('Successfully connected', 24.7, y + 27.6);
 
-    // RC In Progress Box
-    pdf.setFillColor(254, 249, 195); // Light yellow
-    pdf.roundedRect(margin + boxWidth + 10, y, boxWidth, boxHeight, 3, 3, 'F');
-    pdf.setTextColor(202, 138, 4); // Yellow
-    pdf.setFontSize(10);
+    // RC In Progress Card
+    pdf.setFillColor(254, 243, 199); // #fef3c7 - Light yellow
+    pdf.roundedRect(109.4, y, 82.9, 31.8, 2.8, 2.8, 'F');
+    pdf.setFillColor(217, 119, 6); // #d97706 - Orange border
+    pdf.rect(109.4, y, 1.8, 31.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('In Progress', margin + boxWidth + 20, y + 12);
-    pdf.setFontSize(18);
-    pdf.text(String(analytics.value.rcInProgress || 0), margin + boxWidth + 20, y + 25);
-    pdf.setFontSize(7);
+    pdf.text('In Progress', 116.5, y + 4.2);
+    pdf.setTextColor(217, 119, 6);
+    pdf.setFontSize(36);
+    pdf.text(String(analytics.value.rcInProgress || 0), 116.5, y + 15.9);
+    pdf.setTextColor(148, 163, 184);
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Currently processing', margin + boxWidth + 20, y + 31);
+    pdf.text('Currently processing', 116.5, y + 27.6);
 
-    y += boxHeight + 10;
+    y += 38.8;
 
-    // ========== REMOTE DISCONNECT COMMANDS ==========
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(14);
+    // ========== REMOTE DISCONNECT SECTION ==========
+    pdf.setTextColor(220, 38, 38); // #dc2626 - Red
+    pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Remote Disconnect Commands', margin, y);
-    y += 10;
+    pdf.text('Remote Disconnect Commands', 17.6, y);
+    y += 12.4;
 
-    const dcBoxWidth = (pageWidth - margin * 2 - 20) / 3;
-
-    // DC Completed Box
-    pdf.setFillColor(220, 252, 231); // Light green
-    pdf.roundedRect(margin, y, dcBoxWidth, boxHeight, 3, 3, 'F');
-    pdf.setTextColor(22, 163, 74); // Green
-    pdf.setFontSize(10);
+    // DC Completed Card
+    pdf.setFillColor(209, 250, 229); // #d1fae5 - Light green
+    pdf.roundedRect(17.6, y, 55.8, 31.8, 2.8, 2.8, 'F');
+    pdf.setFillColor(5, 150, 105); // #059669 - Green border
+    pdf.rect(17.6, y, 1.8, 31.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Completed', margin + 8, y + 12);
-    pdf.setFontSize(18);
-    pdf.text(String(analytics.value.dcSuccess || 0), margin + 8, y + 25);
-    pdf.setFontSize(7);
+    pdf.text('Completed', 24.7, y + 4.2);
+    pdf.setTextColor(5, 150, 105);
+    pdf.setFontSize(36);
+    pdf.text(String(analytics.value.dcSuccess || 0), 24.7, y + 15.9);
+    pdf.setTextColor(148, 163, 184);
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Successful', margin + 8, y + 31);
+    pdf.text('Successful', 24.7, y + 27.6);
 
-    // DC In Progress Box
-    pdf.setFillColor(254, 249, 195); // Light yellow
-    pdf.roundedRect(margin + dcBoxWidth + 10, y, dcBoxWidth, boxHeight, 3, 3, 'F');
-    pdf.setTextColor(202, 138, 4); // Yellow
-    pdf.setFontSize(10);
+    // DC In Progress Card
+    pdf.setFillColor(254, 243, 199); // #fef3c7 - Light yellow
+    pdf.roundedRect(80.5, y, 55.8, 31.8, 2.8, 2.8, 'F');
+    pdf.setFillColor(217, 119, 6); // #d97706 - Orange border
+    pdf.rect(80.5, y, 1.8, 31.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('In Progress', margin + dcBoxWidth + 18, y + 12);
-    pdf.setFontSize(18);
-    pdf.text(String(analytics.value.dcInProgress || 0), margin + dcBoxWidth + 18, y + 25);
-    pdf.setFontSize(7);
+    pdf.text('In Progress', 87.6, y + 4.2);
+    pdf.setTextColor(217, 119, 6);
+    pdf.setFontSize(36);
+    pdf.text(String(analytics.value.dcInProgress || 0), 87.6, y + 15.9);
+    pdf.setTextColor(148, 163, 184);
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Processing', margin + dcBoxWidth + 18, y + 31);
+    pdf.text('Processing', 87.6, y + 27.6);
 
-    // DC Failed Box
-    pdf.setFillColor(254, 226, 226); // Light red
-    pdf.roundedRect(margin + (dcBoxWidth + 10) * 2, y, dcBoxWidth, boxHeight, 3, 3, 'F');
-    pdf.setTextColor(220, 38, 38); // Red
-    pdf.setFontSize(10);
+    // DC Failed Card
+    pdf.setFillColor(254, 226, 226); // #fee2e2 - Light red
+    pdf.roundedRect(143.3, y, 49.1, 31.8, 2.8, 2.8, 'F');
+    pdf.setFillColor(220, 38, 38); // #dc2626 - Red border
+    pdf.rect(143.3, y, 1.8, 31.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Failed', margin + (dcBoxWidth + 10) * 2 + 8, y + 12);
-    pdf.setFontSize(18);
-    pdf.text(String(analytics.value.dcFailed || 0), margin + (dcBoxWidth + 10) * 2 + 8, y + 25);
-    pdf.setFontSize(7);
+    pdf.text('Failed', 150.4, y + 4.2);
+    pdf.setTextColor(220, 38, 38);
+    pdf.setFontSize(36);
+    pdf.text(String(analytics.value.dcFailed || 0), 150.4, y + 15.9);
+    pdf.setTextColor(148, 163, 184);
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Discarded', margin + (dcBoxWidth + 10) * 2 + 8, y + 31);
+    pdf.text('Discarded', 150.4, y + 27.6);
 
-    y += boxHeight + 10;
+    y += 38.8;
 
-    // ========== SUCCESS RATES ==========
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(14);
+    // ========== SUCCESS RATES SECTION ==========
+    pdf.setTextColor(30, 41, 59); // #1e293b - Dark gray
+    pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Success Rates', margin, y);
-    y += 10;
-
-    const rateBoxWidth = (pageWidth - margin * 2 - 20) / 3;
+    pdf.text('Success Rates', 17.6, y);
+    y += 12.4;
 
     // Calculate success rates
-    const rcRate = calculateSuccessRate(analytics.value.rcSuccess, (analytics.value.rcSuccess || 0) + (analytics.value.rcInProgress || 0));
-    const dcRate = calculateSuccessRate(analytics.value.dcSuccess, (analytics.value.dcSuccess || 0) + (analytics.value.dcInProgress || 0) + (analytics.value.dcFailed || 0));
-    const overallRate = calculateSuccessRate(
-      (analytics.value.rcSuccess || 0) + (analytics.value.dcSuccess || 0),
-      analytics.value.totalCommands || 1
-    );
+    const rcTotal = (analytics.value.rcSuccess || 0) + (analytics.value.rcInProgress || 0);
+    const dcTotal = (analytics.value.dcSuccess || 0) + (analytics.value.dcInProgress || 0) + (analytics.value.dcFailed || 0);
+    const rcRate = rcTotal > 0 ? ((analytics.value.rcSuccess / rcTotal) * 100).toFixed(1) : '0.0';
+    const dcRate = dcTotal > 0 ? ((analytics.value.dcSuccess / dcTotal) * 100).toFixed(1) : '0.0';
+    const overallRate = (analytics.value.totalCommands || 0) > 0 ?
+      (((analytics.value.rcSuccess || 0) + (analytics.value.dcSuccess || 0)) / analytics.value.totalCommands * 100).toFixed(1) : '0.0';
 
-    // RC Success Rate Box
-    pdf.setFillColor(238, 242, 255); // Light blue
-    pdf.roundedRect(margin, y, rateBoxWidth, 30, 3, 3, 'F');
-    pdf.setTextColor(37, 99, 235);
+    // RC Success Rate Card
+    pdf.setFillColor(248, 250, 252); // #f8fafc - Light gray
+    pdf.roundedRect(17.6, y, 55.8, 24.7, 2.8, 2.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('RC Success Rate', 45.5, y + 4.2, { align: 'center' });
+    pdf.setTextColor(5, 150, 105); // #059669 - Green
+    pdf.setFontSize(28);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${rcRate}%`, 45.5, y + 17, { align: 'center' });
+
+    // DC Success Rate Card
+    pdf.setFillColor(248, 250, 252);
+    pdf.roundedRect(80.5, y, 55.8, 24.7, 2.8, 2.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('DC Success Rate', 108.4, y + 4.2, { align: 'center' });
+    pdf.setTextColor(37, 99, 235); // #2563eb - Blue
+    pdf.setFontSize(28);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${dcRate}%`, 108.4, y + 17, { align: 'center' });
+
+    // Overall Success Card
+    pdf.setFillColor(248, 250, 252);
+    pdf.roundedRect(143.3, y, 49.1, 24.7, 2.8, 2.8, 'F');
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Overall Success', 167.8, y + 4.2, { align: 'center' });
+    pdf.setTextColor(124, 58, 237); // #7c3aed - Purple
+    pdf.setFontSize(28);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${overallRate}%`, 167.8, y + 17, { align: 'center' });
+
+    // ========== FOOTER ==========
+    const footerY = pageHeight - 21.2;
+
+    pdf.setDrawColor(226, 232, 240); // #e2e8f0 - Light gray
+    pdf.setLineWidth(0.35);
+    pdf.line(17.6, footerY, pageWidth - 17.6, footerY);
+
+    pdf.setTextColor(100, 116, 139); // #64748b - Gray
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('RC Success Rate', margin + rateBoxWidth/2, y + 10, { align: 'center' });
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(`${rcRate}%`, margin + rateBoxWidth/2, y + 23, { align: 'center' });
+    pdf.text('Generated by DPDC AMI System', pageWidth / 2, footerY + 5.3, { align: 'center' });
 
-    // DC Success Rate Box
-    pdf.setFillColor(238, 242, 255); // Light blue
-    pdf.roundedRect(margin + rateBoxWidth + 10, y, rateBoxWidth, 30, 3, 3, 'F');
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('DC Success Rate', margin + rateBoxWidth + 10 + rateBoxWidth/2, y + 10, { align: 'center' });
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(`${dcRate}%`, margin + rateBoxWidth + 10 + rateBoxWidth/2, y + 23, { align: 'center' });
-
-    // Overall Success Box
-    pdf.setFillColor(220, 252, 231); // Light green
-    pdf.roundedRect(margin + (rateBoxWidth + 10) * 2, y, rateBoxWidth, 30, 3, 3, 'F');
-    pdf.setTextColor(22, 163, 74);
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Overall Success', margin + (rateBoxWidth + 10) * 2 + rateBoxWidth/2, y + 10, { align: 'center' });
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(`${overallRate}%`, margin + (rateBoxWidth + 10) * 2 + rateBoxWidth/2, y + 23, { align: 'center' });
+    pdf.setTextColor(148, 163, 184); // #94a3b8 - Light gray
+    pdf.setFontSize(8);
+    pdf.text('Dhaka Power Distribution Company Limited', pageWidth / 2, footerY + 10.6, { align: 'center' });
 
     // ========== NEW PAGE FOR NOCS-WISE BREAKDOWN ==========
     pdf.addPage();
 
-    // Draw header background on page 2
-    pdf.setFillColor(37, 99, 235); // Blue-600
-    pdf.rect(0, 0, pageWidth, 45, 'F');
+    // ========== HEADER SECTION (Page 2) ==========
+    // Gradient-like header background
+    pdf.setFillColor(30, 58, 138); // #1e3a8a - Dark blue
+    pdf.rect(0, 0, pageWidth, 63.5, 'F');
 
-    // DPDC Logo placeholder (left)
-    pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(margin, 8, 30, 30, 3, 3, 'F');
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('DPDC', margin + 15, 22, { align: 'center' });
-    pdf.setFontSize(6);
-    pdf.text('LOGO', margin + 15, 28, { align: 'center' });
+    // Gradient overlay
+    pdf.setFillColor(59, 130, 246); // #3b82f6 - Lighter blue
+    pdf.setGState(new pdf.GState({ opacity: 0.3 }));
+    pdf.rect(0, 42.3, pageWidth, 21.2, 'F');
+    pdf.setGState(new pdf.GState({ opacity: 1.0 }));
 
-    // OTBL Logo placeholder (right)
-    pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(pageWidth - margin - 30, 8, 30, 30, 3, 3, 'F');
-    pdf.setTextColor(37, 99, 235);
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('OTBL', pageWidth - margin - 15, 22, { align: 'center' });
-    pdf.setFontSize(6);
-    pdf.text('LOGO', pageWidth - margin - 15, 28, { align: 'center' });
+    // DPDC Logo (Left)
+    if (dpdcLogoBase64) {
+      try {
+        pdf.addImage(dpdcLogoBase64, 'PNG', 12.3, 8.8, 24.7, 24.7);
+      } catch (error) {
+        console.warn('[Dashboard] Failed to add DPDC logo to PDF page 2:', error);
+      }
+    }
 
-    // Page 2 title
+    // Main Title
     pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(18);
+    pdf.setFontSize(24);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('NOCS-wise Breakdown', pageWidth / 2, 25, { align: 'center' });
+    pdf.text('DPDC AMI RC/DC', pageWidth / 2, 15.9, { align: 'center' });
 
-    // Divider line
-    pdf.setDrawColor(255, 255, 255);
+    // Subtitle
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(191, 219, 254); // #bfdbfe - Light blue
+    pdf.text('NOCS-wise Breakdown', pageWidth / 2, 25.4, { align: 'center' });
+
+    // Report Info Box
+    pdf.setFillColor(255, 255, 255);
+    pdf.setDrawColor(219, 234, 254); // #dbeafe - Light blue border
     pdf.setLineWidth(0.5);
-    pdf.line(60, 32, pageWidth - 60, 32);
+    pdf.rect(17.6, 42.3, pageWidth - 35.3, 15.9, 'FD');
 
-    // Report date
+    // Report Generated label
+    pdf.setTextColor(30, 64, 175); // #1e40af - Blue
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Report Generated:', 24.7, 46.6);
+
+    // Report date value
+    pdf.setTextColor(71, 85, 105); // #475569 - Gray
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Report Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 40, { align: 'center' });
+    pdf.text(new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }), 24.7, 52.2);
 
-    y = 55;
+    // Total NOCS label
+    pdf.setTextColor(30, 64, 175);
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Total NOCS:', pageWidth - 98.8, 46.6);
+
+    // Total NOCS value
+    pdf.setTextColor(71, 85, 105);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(String(nocsTableData.value.length), pageWidth - 98.8, 52.2);
+
+    y = 77.6;
 
     // NOCS Table
     const data = nocsTableData.value || [];
@@ -1096,6 +1242,33 @@ const downloadDashboardPDF = async () => {
           pdf.addPage();
           y = margin;
           rowCount = 0;
+
+          // Draw header background on continuation page
+          pdf.setFillColor(30, 58, 138); // #1e3a8a - Dark blue
+          pdf.rect(0, 0, pageWidth, 63.5, 'F');
+
+          // Gradient overlay
+          pdf.setFillColor(59, 130, 246); // #3b82f6 - Lighter blue
+          pdf.setGState(new pdf.GState({ opacity: 0.3 }));
+          pdf.rect(0, 42.3, pageWidth, 21.2, 'F');
+          pdf.setGState(new pdf.GState({ opacity: 1.0 }));
+
+          // Add DPDC logo to continuation page
+          if (dpdcLogoBase64) {
+            try {
+              pdf.addImage(dpdcLogoBase64, 'PNG', 12.3, 8.8, 24.7, 24.7);
+            } catch (error) {
+              console.warn('[Dashboard] Failed to add DPDC logo to continuation page:', error);
+            }
+          }
+
+          // Page title
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(18);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('NOCS-wise Breakdown (Continued)', pageWidth / 2, 25.4, { align: 'center' });
+
+          y = 77.6;
 
           // Redraw table header on new page
           pdf.setFillColor(37, 99, 235);
@@ -1176,22 +1349,24 @@ const downloadDashboardPDF = async () => {
       // Draw table border
       pdf.setDrawColor(209, 213, 219);
       pdf.setLineWidth(0.3);
-      pdf.rect(margin, 55, tableWidth, y - 55 + 10);
+      pdf.rect(margin, 77.6, tableWidth, y - 77.6 + 10);
     }
 
-    // ========== FOOTER ==========
-    // Footer background
-    pdf.setFillColor(243, 244, 246);
-    pdf.rect(0, pageHeight - 25, pageWidth, 25, 'F');
+    // ========== FOOTER (Page 2) ==========
+    const footerY2 = pageHeight - 21.2;
 
-    // Footer text
-    pdf.setTextColor(107, 114, 128);
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Generated by DPDC AMI System', pageWidth / 2, pageHeight - 15, { align: 'center' });
-    pdf.setFontSize(8);
+    pdf.setDrawColor(226, 232, 240); // #e2e8f0 - Light gray
+    pdf.setLineWidth(0.35);
+    pdf.line(17.6, footerY2, pageWidth - 17.6, footerY2);
+
+    pdf.setTextColor(100, 116, 139); // #64748b - Gray
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Dhaka Power Distribution Company Limited', pageWidth / 2, pageHeight - 8, { align: 'center' });
+    pdf.text('Generated by DPDC AMI System', pageWidth / 2, footerY2 + 5.3, { align: 'center' });
+
+    pdf.setTextColor(148, 163, 184); // #94a3b8 - Light gray
+    pdf.setFontSize(8);
+    pdf.text('Dhaka Power Distribution Company Limited', pageWidth / 2, footerY2 + 10.6, { align: 'center' });
 
     // Save the PDF
     const filename = `DPDC_RCDC_Summary_${new Date().toISOString().split('T')[0]}.pdf`;

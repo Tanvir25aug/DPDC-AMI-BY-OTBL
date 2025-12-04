@@ -106,12 +106,12 @@
               />
               <span class="text-gray-700 group-hover:text-indigo-600 transition-colors">Remember me</span>
             </label>
-            <button
+            <!-- <button
               type="button"
               class="text-indigo-600 hover:text-indigo-800 font-medium hover:underline transition-all"
             >
               Forgot password?
-            </button>
+            </button>    -->
           </div>
 
           <!-- Error Message -->
@@ -193,7 +193,7 @@ const handleLogin = async () => {
   loading.value = false;
 
   if (result.success) {
-    const redirect = route.query.redirect || '/dashboard';
+    const redirect = route.query.redirect || '/rc-dc-dashboard';
     router.push(redirect);
   } else {
     error.value = result.message;

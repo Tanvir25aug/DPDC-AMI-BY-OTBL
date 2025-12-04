@@ -205,6 +205,11 @@ const navItems = [
     label: 'Customer Details',
     icon: UserGroupIcon,
   },
+  {
+    path: '/crp-cpc',
+    label: 'CRP-CPC',
+    icon: UserGroupIcon,
+  },
   // Payment reports disabled - requires ci_pay tables access
   // {
   //   path: '/bank-wise-collection',

@@ -91,7 +91,7 @@
           </div>
         </div>
 
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden group">
+        <div @click="sortBy('TOTAL_CUSTOMERS')" class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden group cursor-pointer">
           <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
           <div class="relative z-10">
             <div class="flex items-center justify-between mb-3">
@@ -100,6 +100,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
+              <span v-if="sortColumn === 'TOTAL_CUSTOMERS'" class="text-white text-xl font-bold">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
             </div>
             <div class="text-sm text-purple-100 mb-1 font-medium">Total Customers</div>
             <div class="text-4xl font-bold text-white">{{ formatNumber(totalCustomers) }}</div>
@@ -109,20 +110,24 @@
         <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden group">
           <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
           <div class="relative z-10">
-            <div class="flex items-center justify-between mb-3">
-              <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            <div @click="sortBy('DUE_BALANCE_AMT')" class="cursor-pointer">
+              <div class="flex items-center justify-between mb-3">
+                <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+                <span v-if="sortColumn === 'DUE_BALANCE_AMT'" class="text-white text-xl font-bold">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
               </div>
+              <div class="text-sm text-green-100 mb-1 font-medium">Credit Balance</div>
+              <div class="text-3xl font-bold text-white">৳{{ formatNumber(totalCreditBalance) }}</div>
             </div>
-            <div class="text-sm text-green-100 mb-1 font-medium">Credit Balance</div>
-            <div class="text-3xl font-bold text-white">৳{{ formatNumber(totalCreditBalance) }}</div>
-            <div class="text-xs text-green-100 mt-2 flex items-center gap-1">
+            <div @click="sortBy('DUE_QTY')" class="text-xs text-green-100 mt-2 flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path>
               </svg>
               {{ formatNumber(totalCreditQty) }} customers
+              <span v-if="sortColumn === 'DUE_QTY'" class="text-white font-bold ml-1">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
             </div>
           </div>
         </div>
@@ -130,20 +135,24 @@
         <div class="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative overflow-hidden group">
           <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
           <div class="relative z-10">
-            <div class="flex items-center justify-between mb-3">
-              <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            <div @click="sortBy('CREDIT_BALANCE_AMT')" class="cursor-pointer">
+              <div class="flex items-center justify-between mb-3">
+                <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                  </svg>
+                </div>
+                <span v-if="sortColumn === 'CREDIT_BALANCE_AMT'" class="text-white text-xl font-bold">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
               </div>
+              <div class="text-sm text-red-100 mb-1 font-medium">Due Balance</div>
+              <div class="text-3xl font-bold text-white">৳{{ formatNumber(totalDueBalance) }}</div>
             </div>
-            <div class="text-sm text-red-100 mb-1 font-medium">Due Balance</div>
-            <div class="text-3xl font-bold text-white">৳{{ formatNumber(totalDueBalance) }}</div>
-            <div class="text-xs text-red-100 mt-2 flex items-center gap-1">
+            <div @click="sortBy('CREDIT_QTY')" class="text-xs text-red-100 mt-2 flex items-center gap-1 cursor-pointer hover:text-white transition-colors">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"></path>
               </svg>
               {{ formatNumber(totalDueQty) }} customers
+              <span v-if="sortColumn === 'CREDIT_QTY'" class="text-white font-bold ml-1">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
             </div>
           </div>
         </div>
@@ -156,18 +165,18 @@
         <div class="relative z-10 flex items-center justify-between">
           <div>
             <div class="text-indigo-100 text-sm font-semibold mb-2 uppercase tracking-wider">Net Balance (All NOCS)</div>
-            <div class="text-5xl font-bold text-white mb-2">৳{{ formatNumber(Math.abs(netBalance)) }}</div>
+            <div class="text-5xl font-bold text-white mb-2">{{ netBalance >= 0 ? '-' : '' }}৳{{ formatNumber(Math.abs(netBalance)) }}</div>
             <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
               <span :class="netBalance >= 0 ? 'text-red-200' : 'text-green-200'" class="text-sm font-medium">
                 {{ netBalance >= 0 ? '▼ Overall Due' : '▲ Overall Credit' }}
               </span>
             </div>
           </div>
-          <div class="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20">
+          <!-- <div class="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20">
             <svg class="w-20 h-20 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-          </div>
+          </div> -->
         </div>
       </div>
 
@@ -206,18 +215,58 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gradient-to-r from-gray-50 to-slate-50">
               <tr>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">NOCS Name</th>
-                <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Code</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Customers</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-green-700 uppercase tracking-wider">Credit Qty</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-green-700 uppercase tracking-wider">Credit Balance</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-red-700 uppercase tracking-wider">Due Qty</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-red-700 uppercase tracking-wider">Due Balance</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider">Net Balance</th>
+                <th @click="sortBy('NOCS_NAME')" class="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center gap-1">
+                    NOCS Name
+                    <span v-if="sortColumn === 'NOCS_NAME'" class="text-indigo-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('NOCS_CODE')" class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-center gap-1">
+                    Code
+                    <span v-if="sortColumn === 'NOCS_CODE'" class="text-indigo-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('TOTAL_CUSTOMERS')" class="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    Customers
+                    <span v-if="sortColumn === 'TOTAL_CUSTOMERS'" class="text-indigo-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('DUE_QTY')" class="px-6 py-4 text-right text-xs font-bold text-green-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    Credit Qty
+                    <span v-if="sortColumn === 'DUE_QTY'" class="text-green-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('DUE_BALANCE_AMT')" class="px-6 py-4 text-right text-xs font-bold text-green-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    Credit Balance
+                    <span v-if="sortColumn === 'DUE_BALANCE_AMT'" class="text-green-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('CREDIT_QTY')" class="px-6 py-4 text-right text-xs font-bold text-red-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    Due Qty
+                    <span v-if="sortColumn === 'CREDIT_QTY'" class="text-red-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('CREDIT_BALANCE_AMT')" class="px-6 py-4 text-right text-xs font-bold text-red-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    Due Balance
+                    <span v-if="sortColumn === 'CREDIT_BALANCE_AMT'" class="text-red-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('NET_BALANCE')" class="px-6 py-4 text-right text-xs font-bold text-indigo-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    Net Balance
+                    <span v-if="sortColumn === 'NET_BALANCE'" class="text-indigo-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-100">
-              <tr v-for="row in data" :key="row.NOCS_CODE" class="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 border-l-4 border-transparent hover:border-indigo-400">
+              <tr v-for="row in sortedData" :key="row.NOCS_CODE" class="hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-200 border-l-4 border-transparent hover:border-indigo-400">
                 <td class="px-6 py-5 text-sm">
                   <div class="flex items-center gap-2">
                     <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
@@ -251,7 +300,7 @@
                 <td class="px-6 py-5 text-sm text-right">
                   <div class="inline-flex items-center gap-2">
                     <span :class="row.NET_BALANCE >= 0 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'" class="font-bold px-3 py-1 rounded-lg border">
-                      ৳{{ formatNumber(Math.abs(row.NET_BALANCE)) }}
+                      {{ row.NET_BALANCE >= 0 ? '-' : '' }}৳{{ formatNumber(Math.abs(row.NET_BALANCE)) }}
                     </span>
                     <span :class="row.NET_BALANCE >= 0 ? 'text-red-500' : 'text-green-500'" class="text-sm">
                       {{ row.NET_BALANCE >= 0 ? '▼' : '▲' }}
@@ -295,7 +344,7 @@
                 <td class="px-6 py-6 text-right">
                   <div class="inline-flex items-center gap-2 bg-white/30 px-4 py-2 rounded-lg backdrop-blur-sm border-2 border-white/50">
                     <span class="text-lg text-white font-extrabold">
-                      ৳{{ formatNumber(Math.abs(netBalance)) }}
+                      {{ netBalance >= 0 ? '-' : '' }}৳{{ formatNumber(Math.abs(netBalance)) }}
                     </span>
                     <span :class="netBalance >= 0 ? 'text-red-200' : 'text-green-200'" class="text-sm font-bold">
                       {{ netBalance >= 0 ? '▼' : '▲' }}
@@ -309,7 +358,7 @@
 
         <!-- Mobile Cards -->
         <div class="md:hidden space-y-4 p-6">
-          <div v-for="row in data" :key="row.NOCS_CODE" class="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-5 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300">
+          <div v-for="row in sortedData" :key="row.NOCS_CODE" class="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-5 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300">
             <div class="flex items-center justify-between mb-4">
               <div class="font-bold text-lg text-gray-900">{{ row.NOCS_NAME }}</div>
               <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
@@ -346,7 +395,7 @@
                 <div class="flex justify-between items-center">
                   <span class="text-indigo-800 font-semibold">Net Balance</span>
                   <span :class="row.NET_BALANCE >= 0 ? 'text-red-600' : 'text-green-600'" class="font-bold text-lg">
-                    ৳{{ formatNumber(Math.abs(row.NET_BALANCE)) }}
+                    {{ row.NET_BALANCE >= 0 ? '-' : '' }}৳{{ formatNumber(Math.abs(row.NET_BALANCE)) }}
                   </span>
                 </div>
               </div>
@@ -397,6 +446,42 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 const data = ref([]);
 const loading = ref(false);
 const error = ref(null);
+const sortColumn = ref('NET_BALANCE');
+const sortDirection = ref('desc');
+
+// Sorted data
+const sortedData = computed(() => {
+  if (!data.value.length) return [];
+
+  const sorted = [...data.value].sort((a, b) => {
+    let aVal = a[sortColumn.value];
+    let bVal = b[sortColumn.value];
+
+    // Convert to numbers for numeric columns
+    if (sortColumn.value !== 'NOCS_NAME' && sortColumn.value !== 'NOCS_CODE') {
+      aVal = Number(aVal) || 0;
+      bVal = Number(bVal) || 0;
+    }
+
+    if (sortDirection.value === 'asc') {
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+    } else {
+      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+    }
+  });
+
+  return sorted;
+});
+
+// Sort function
+const sortBy = (column) => {
+  if (sortColumn.value === column) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn.value = column;
+    sortDirection.value = 'desc';
+  }
+};
 
 // Computed totals
 const totalCustomers = computed(() => {

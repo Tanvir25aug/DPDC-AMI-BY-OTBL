@@ -5,7 +5,10 @@
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-white flex items-center gap-2">
           <CalendarIcon class="w-5 h-5" />
-          Batch Operation Timeline - {{ formattedDate }}
+          Batch Operation Timeline
+          <span v-if="timelines.length > 0" class="text-sm font-normal text-white/80">
+            ({{ timelines.length }} {{ timelines.length === 1 ? 'Business Date' : 'Business Dates' }})
+          </span>
         </h2>
         <button
           @click="refreshTimeline"
@@ -21,96 +24,145 @@
     <!-- Timeline Content -->
     <div class="p-6 bg-white rounded-b-xl">
       <!-- Loading State -->
-      <div v-if="loading && timeline.length === 0" class="flex items-center justify-center py-10">
+      <div v-if="loading && timelines.length === 0" class="flex items-center justify-center py-10">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
         <span class="ml-3 text-gray-600">Loading workflow timeline...</span>
       </div>
 
-      <!-- Timeline Steps -->
-      <div v-else class="space-y-4">
+      <!-- Timeline Sections (One per Business Date) -->
+      <div v-else class="space-y-8">
         <div
-          v-for="(step, index) in timeline"
-          :key="step.batch_code"
-          class="relative"
+          v-for="(timelineData, dateIndex) in timelines"
+          :key="timelineData.businessDate"
+          class="timeline-section"
         >
-          <!-- Connecting Line (between steps) -->
-          <div
-            v-if="index < timeline.length - 1"
-            class="absolute left-6 top-16 w-0.5 h-8 bg-gray-300"
-            :class="getConnectorClass(step)"
-          ></div>
+          <!-- Business Date Header -->
+          <div class="mb-4 pb-2 border-b-2 border-indigo-200">
+            <h3 class="text-xl font-bold text-indigo-900 flex items-center gap-2">
+              <CalendarIcon class="w-6 h-6" />
+              {{ formatBusinessDate(timelineData.businessDate) }}
+              <span v-if="isToday(timelineData.businessDate)" class="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded">
+                Today
+              </span>
+              <span v-else-if="isYesterday(timelineData.businessDate)" class="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                Yesterday
+              </span>
+              <span v-else class="text-sm font-normal text-gray-500">
+                ({{ timelineData.businessDate }})
+              </span>
+            </h3>
+          </div>
 
-          <!-- Step Card -->
-          <div
-            class="batch-step-card"
-            :class="getStepBorderClass(step)"
-          >
-            <!-- Step Number & Status Icon -->
-            <div class="flex items-start gap-4">
-              <!-- Step Number Circle -->
+          <!-- Timeline Steps for this Business Date -->
+          <div class="space-y-4">
+            <div
+              v-for="(step, index) in timelineData.timeline"
+              :key="step.batch_code"
+              class="relative"
+            >
+              <!-- Connecting Line (between steps) -->
               <div
-                class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg"
-                :class="getStepCircleClass(step)"
+                v-if="index < timelineData.timeline.length - 1"
+                class="absolute left-6 top-16 w-0.5 h-8 bg-gray-300"
+                :class="getConnectorClass(step)"
+              ></div>
+
+              <!-- Step Card -->
+              <div
+                class="batch-step-card"
+                :class="getStepBorderClass(step)"
               >
-                {{ step.sequence_order }}
-              </div>
+                <!-- Step Number & Status Icon -->
+                <div class="flex items-start gap-4">
+                  <!-- Step Number Circle -->
+                  <div
+                    class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg"
+                    :class="getStepCircleClass(step)"
+                  >
+                    {{ step.sequence_order }}
+                  </div>
 
-              <!-- Step Info -->
-              <div class="flex-1 min-w-0">
-                <div class="flex items-start justify-between gap-3 mb-2">
-                  <div>
-                    <h3 class="text-lg font-bold text-gray-900">{{ step.batch_code }}</h3>
-                    <p class="text-sm text-gray-600">{{ step.batch_name }}</p>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <!-- Status Badge -->
-                    <span :class="getStatusBadgeClass(step)" class="px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5">
-                      <component :is="getStatusIcon(step)" class="w-4 h-4" />
-                      {{ getStatusText(step) }}
-                    </span>
-                  </div>
-                </div>
+                  <!-- Step Info -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <h3 class="text-lg font-bold text-gray-900">{{ step.batch_code }}</h3>
+                        <p class="text-sm text-gray-600">{{ step.batch_name }}</p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <!-- Status Badge -->
+                        <span :class="getStatusBadgeClass(step)" class="px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5">
+                          <component :is="getStatusIcon(step)" class="w-4 h-4" />
+                          {{ getStatusText(step) }}
+                        </span>
+                      </div>
+                    </div>
 
-                <!-- Progress Bar (for Running batches) -->
-                <div v-if="isRunning(step)" class="mb-3">
-                  <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                    <div
-                      class="h-full bg-blue-600 rounded-full animate-pulse"
-                      :style="{ width: getProgressPercent(step) + '%' }"
-                    ></div>
-                  </div>
-                  <p class="text-xs text-gray-500 mt-1">Running for {{ getRunningDuration(step) }}</p>
-                </div>
+                    <!-- Progress Bar (for Running batches) -->
+                    <div v-if="isRunning(step)" class="mb-3">
+                      <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          class="h-full bg-blue-600 rounded-full animate-pulse"
+                          :style="{ width: getProgressPercent(step) + '%' }"
+                        ></div>
+                      </div>
+                      <p class="text-xs text-gray-500 mt-1">Running for {{ getRunningDuration(step) }}</p>
+                    </div>
 
-                <!-- Batch Metrics (Completed or Running) -->
-                <div v-if="step.todayStatus" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                  <div class="metric-item">
-                    <div class="metric-label">Start Time</div>
-                    <div class="metric-value">{{ formatTime(step.todayStatus.start_time) }}</div>
-                  </div>
-                  <div v-if="step.todayStatus.end_time" class="metric-item">
-                    <div class="metric-label">End Time</div>
-                    <div class="metric-value">{{ formatTime(step.todayStatus.end_time) }}</div>
-                  </div>
-                  <div v-if="step.todayStatus.duration_seconds" class="metric-item">
-                    <div class="metric-label">Duration</div>
-                    <div class="metric-value">{{ formatDuration(step.todayStatus.duration_seconds) }}</div>
-                  </div>
-                  <div v-if="step.todayStatus.records_processed" class="metric-item">
-                    <div class="metric-label">Records</div>
-                    <div class="metric-value">{{ formatNumber(step.todayStatus.records_processed) }}</div>
-                  </div>
-                  <div v-if="step.todayStatus.rps" class="metric-item">
-                    <div class="metric-label">RPS</div>
-                    <div class="metric-value" :class="getRpsClass(step.todayStatus.rps)">
-                      {{ formatRps(step.todayStatus.rps) }}
+                    <!-- D1-IMD Pending Count (if applicable) -->
+                    <div v-if="step.batch_code === 'D1-IMD' && step.pendingIMDCount !== undefined" class="mb-3">
+                      <div class="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <ClockIcon class="w-5 h-5 text-orange-600" />
+                        <div>
+                          <div class="text-sm font-semibold text-orange-900">Pending IMD Count: {{ formatNumber(step.pendingIMDCount) }}</div>
+                          <div v-if="step.needsToRun" class="text-xs text-orange-700">⚠️ Needs to run again</div>
+                          <div v-else-if="step.pendingIMDCount === 0" class="text-xs text-green-700">✅ All IMDs processed</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Multiple Runs Indicator -->
+                    <div v-if="step.totalRuns > 1" class="mb-3">
+                      <div class="text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                        🔄 Ran {{ step.totalRuns }} times on this date (showing latest)
+                      </div>
+                    </div>
+
+                    <!-- Batch Metrics (Completed or Running) -->
+                    <div v-if="step.todayStatus" class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                      <div class="metric-item">
+                        <div class="metric-label">Start Time</div>
+                        <div class="metric-value">{{ formatTime(step.todayStatus.start_time) }}</div>
+                      </div>
+                      <div v-if="step.todayStatus.end_time" class="metric-item">
+                        <div class="metric-label">End Time</div>
+                        <div class="metric-value">{{ formatTime(step.todayStatus.end_time) }}</div>
+                      </div>
+                      <div v-if="step.todayStatus.duration_seconds || isRunning(step)" class="metric-item">
+                        <div class="metric-label">Duration</div>
+                        <div class="metric-value">{{ isRunning(step) ? getRunningDuration(step) : formatDuration(step.todayStatus.duration_seconds) }}</div>
+                      </div>
+                      <div v-if="step.todayStatus.records_processed" class="metric-item">
+                        <div class="metric-label">Records</div>
+                        <div class="metric-value">{{ formatNumber(step.todayStatus.records_processed) }}</div>
+                      </div>
+                      <div v-if="isRunning(step) || step.todayStatus.rps" class="metric-item">
+                        <div class="metric-label">RPS {{ isRunning(step) ? '(Live)' : '' }}</div>
+                        <div class="metric-value" :class="getRpsClass(isRunning(step) ? getRunningRPS(step) : step.todayStatus.rps)">
+                          {{ formatRps(isRunning(step) ? getRunningRPS(step) : step.todayStatus.rps) }}
+                        </div>
+                      </div>
+                      <div v-if="step.todayStatus.batch_nbr" class="metric-item">
+                        <div class="metric-label">Batch #</div>
+                        <div class="metric-value">{{ step.todayStatus.batch_nbr }}</div>
+                      </div>
+                    </div>
+
+                    <!-- Expected Time (for Pending batches) -->
+                    <div v-else-if="step.expected_start_time" class="text-sm text-gray-500 mt-2">
+                      Expected start: {{ step.expected_start_time }} ({{ step.expected_duration_minutes }}min)
                     </div>
                   </div>
-                </div>
-
-                <!-- Expected Time (for Pending batches) -->
-                <div v-else-if="step.expected_start_time" class="text-sm text-gray-500 mt-2">
-                  Expected start: {{ step.expected_start_time }} ({{ step.expected_duration_minutes }}min)
                 </div>
               </div>
             </div>
@@ -119,9 +171,15 @@
       </div>
 
       <!-- No Data State -->
-      <div v-if="!loading && timeline.length === 0" class="text-center py-10">
+      <div v-if="!loading && timelines.length === 0" class="text-center py-10">
         <CalendarIcon class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p class="text-gray-500">No workflow timeline data available</p>
+        <p class="text-gray-600 font-medium mb-2">No workflow timeline data available</p>
+        <p v-if="errorMessage" class="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded px-4 py-2 inline-block">
+          {{ errorMessage }}
+        </p>
+        <p v-else class="text-sm text-gray-500">
+          Waiting for batch operations to start in Oracle CC&B
+        </p>
       </div>
     </div>
   </div>
@@ -142,39 +200,68 @@ import { getBatchTimeline } from '@/services/ami-operational.api';
 
 // State
 const loading = ref(false);
-const timeline = ref([]);
-const businessDate = ref(null);
-
-// Computed
-const formattedDate = computed(() => {
-  if (!businessDate.value) return new Date().toLocaleDateString();
-  return new Date(businessDate.value).toLocaleDateString('en-US', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-});
+const timelines = ref([]);
+const errorMessage = ref('');
 
 // Methods
 const refreshTimeline = async () => {
   loading.value = true;
+  errorMessage.value = '';
   try {
     const response = await getBatchTimeline();
-    timeline.value = response.data.data?.timeline || [];
-    businessDate.value = response.data.data?.businessDate || null;
-    console.log('[BatchTimeline] Timeline loaded:', timeline.value.length, 'steps');
+    timelines.value = response.data.data?.timelines || [];
+    errorMessage.value = response.data.data?.message || '';
+    console.log('[BatchTimeline] Timelines loaded:', timelines.value.length, 'business dates');
+    if (response.data.data?.pendingIMDByDate) {
+      console.log('[BatchTimeline] Pending IMD by date:', response.data.data.pendingIMDByDate);
+    }
   } catch (error) {
     console.error('[BatchTimeline] Error loading timeline:', error);
-    timeline.value = [];
+    timelines.value = [];
+    errorMessage.value = error.response?.data?.message || 'Failed to load batch timeline';
   } finally {
     loading.value = false;
   }
 };
 
+const formatBusinessDate = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+const isToday = (dateStr) => {
+  if (!dateStr) return false;
+  const today = getDhakaTime().toISOString().split('T')[0];
+  return dateStr === today;
+};
+
+const isYesterday = (dateStr) => {
+  if (!dateStr) return false;
+  const dhakaTime = getDhakaTime();
+  const yesterday = new Date(dhakaTime);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  return dateStr === yesterdayStr;
+};
+
 // Status helpers
 const getStatus = (step) => {
   if (!step.todayStatus) return 'pending';
+
+  // Use statusCode for accurate status detection
+  const statusCode = step.todayStatus.statusCode;
+  if (statusCode === 'ST') return 'running';
+  if (statusCode === 'CM' || statusCode === 'ED') return 'complete';
+  if (statusCode === 'ER') return 'error';
+  if (statusCode === 'PD') return 'pending';
+
+  // Fallback to status text
   const status = step.todayStatus.status?.toLowerCase();
   if (status === 'complete' || status === 'ended') return 'complete';
   if (status === 'running') return 'running';
@@ -246,12 +333,19 @@ const getConnectorClass = (step) => {
   return 'bg-gray-300';
 };
 
+// Dhaka timezone helper (UTC+6)
+const getDhakaTime = () => {
+  const now = new Date();
+  const dhakaOffset = 6 * 60; // +6 hours in minutes
+  return new Date(now.getTime() + (dhakaOffset * 60 * 1000));
+};
+
 // Progress calculation (estimated)
 const getProgressPercent = (step) => {
   if (!step.todayStatus?.start_time || !step.expected_duration_minutes) return 25;
 
   const startTime = new Date(step.todayStatus.start_time).getTime();
-  const now = Date.now();
+  const now = getDhakaTime().getTime();
   const elapsedMinutes = (now - startTime) / 1000 / 60;
   const percent = (elapsedMinutes / step.expected_duration_minutes) * 100;
 
@@ -262,7 +356,7 @@ const getRunningDuration = (step) => {
   if (!step.todayStatus?.start_time) return '0m';
 
   const startTime = new Date(step.todayStatus.start_time).getTime();
-  const now = Date.now();
+  const now = getDhakaTime().getTime();
   const diffMs = now - startTime;
   const diffMinutes = Math.floor(diffMs / 1000 / 60);
   const diffHours = Math.floor(diffMinutes / 60);
@@ -272,6 +366,20 @@ const getRunningDuration = (step) => {
     return `${diffHours}h ${remainingMinutes}m`;
   }
   return `${diffMinutes}m`;
+};
+
+// Calculate real-time RPS for running batches: RPS = Records / Duration
+const getRunningRPS = (step) => {
+  if (!step.todayStatus?.start_time || !step.todayStatus?.records_processed) return 0;
+
+  const startTime = new Date(step.todayStatus.start_time).getTime();
+  const now = getDhakaTime().getTime();
+  const durationSeconds = Math.floor((now - startTime) / 1000);
+
+  if (durationSeconds <= 0) return 0;
+
+  const rps = step.todayStatus.records_processed / durationSeconds;
+  return Math.round(rps * 100) / 100;
 };
 
 // Format helpers
