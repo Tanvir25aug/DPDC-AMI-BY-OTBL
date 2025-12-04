@@ -433,45 +433,73 @@ class TeamsService {
       return {
         type: 'Container',
         separator: true,
-        spacing: 'Small',
+        spacing: 'Medium',
         items: [
           {
-            type: 'ColumnSet',
-            columns: [
-              {
-                type: 'Column',
-                width: 'stretch',
-                items: [
-                  {
-                    type: 'TextBlock',
-                    text: `${rpsIcon} **${batch.batchCode}**`,
-                    weight: 'Bolder',
-                    size: 'Medium'
-                  }
-                ]
-              },
-              {
-                type: 'Column',
-                width: 'auto',
-                items: [
-                  {
-                    type: 'TextBlock',
-                    text: `RPS: ${batch.rps.toFixed(2)}`,
-                    color: rpsColor,
-                    weight: 'Bolder'
-                  }
-                ]
-              }
-            ]
+            type: 'TextBlock',
+            text: `${rpsIcon} **${batch.batchCode}**`,
+            weight: 'Bolder',
+            size: 'Large',
+            wrap: true
           },
           {
-            type: 'FactSet',
-            facts: [
-              { title: '⏰ Start Time:', value: new Date(batch.startTime).toLocaleString('en-US') },
-              { title: '⏱️ Duration:', value: this.formatDuration(batch.durationSeconds) },
-              { title: '📊 Records:', value: batch.totalRecords.toLocaleString('en-IN') },
-              { title: '📈 Status:', value: batch.status || 'Running' }
-            ]
+            type: 'TextBlock',
+            text: ' ',
+            size: 'Small'
+          },
+          {
+            type: 'TextBlock',
+            text: `**RPS:** ${batch.rps.toFixed(2)}`,
+            color: rpsColor,
+            weight: 'Bolder',
+            size: 'Medium',
+            wrap: true
+          },
+          {
+            type: 'TextBlock',
+            text: ' ',
+            size: 'Small'
+          },
+          {
+            type: 'TextBlock',
+            text: `⏰ **Start Time:**`,
+            weight: 'Bolder',
+            wrap: true
+          },
+          {
+            type: 'TextBlock',
+            text: new Date(batch.startTime).toLocaleString('en-US'),
+            wrap: true
+          },
+          {
+            type: 'TextBlock',
+            text: ' ',
+            size: 'Small'
+          },
+          {
+            type: 'TextBlock',
+            text: `⏱️ **Duration:** ${this.formatDuration(batch.durationSeconds)}`,
+            wrap: true
+          },
+          {
+            type: 'TextBlock',
+            text: ' ',
+            size: 'Small'
+          },
+          {
+            type: 'TextBlock',
+            text: `📊 **Records:** ${batch.totalRecords.toLocaleString('en-IN')}`,
+            wrap: true
+          },
+          {
+            type: 'TextBlock',
+            text: ' ',
+            size: 'Small'
+          },
+          {
+            type: 'TextBlock',
+            text: `📈 **Status:** ${batch.status || 'Running'}`,
+            wrap: true
           }
         ]
       };
@@ -493,21 +521,40 @@ class TeamsService {
           },
           ...batchStatistics.map(stat => ({
             type: 'Container',
-            spacing: 'Small',
+            spacing: 'Medium',
+            separator: true,
             items: [
               {
                 type: 'TextBlock',
                 text: `**${stat.batch_code}**`,
-                weight: 'Bolder'
+                weight: 'Bolder',
+                size: 'Medium',
+                wrap: true
               },
               {
-                type: 'FactSet',
-                facts: [
-                  { title: 'Avg RPS:', value: parseFloat(stat.avg_rps || 0).toFixed(2) },
-                  { title: 'Max RPS:', value: parseFloat(stat.max_rps || 0).toFixed(2) },
-                  { title: 'Max Records:', value: (stat.max_records || 0).toLocaleString('en-IN') },
-                  { title: 'Checks:', value: (stat.total_checks || 0).toString() }
-                ]
+                type: 'TextBlock',
+                text: ' ',
+                size: 'Small'
+              },
+              {
+                type: 'TextBlock',
+                text: `📊 **Avg RPS:** ${parseFloat(stat.avg_rps || 0).toFixed(2)}`,
+                wrap: true
+              },
+              {
+                type: 'TextBlock',
+                text: `⚡ **Max RPS:** ${parseFloat(stat.max_rps || 0).toFixed(2)}`,
+                wrap: true
+              },
+              {
+                type: 'TextBlock',
+                text: `📈 **Max Records:** ${(stat.max_records || 0).toLocaleString('en-IN')}`,
+                wrap: true
+              },
+              {
+                type: 'TextBlock',
+                text: `✅ **Checks:** ${(stat.total_checks || 0).toString()}`,
+                wrap: true
               }
             ]
           }))
@@ -542,38 +589,35 @@ class TeamsService {
           items: [
             {
               type: 'TextBlock',
-              text: '📋 Pending IMD',
+              text: '📋 **Pending IMD**',
               weight: 'Bolder',
-              size: 'Large'
+              size: 'Large',
+              wrap: true
             },
             {
-              type: 'ColumnSet',
-              columns: [
-                {
-                  type: 'Column',
-                  width: 'stretch',
-                  items: [
-                    {
-                      type: 'TextBlock',
-                      text: `**${pendingIMD.toLocaleString('en-IN')}** records pending`,
-                      size: 'Large',
-                      color: pendingIMD > 10000 ? 'Warning' : 'Good'
-                    }
-                  ]
-                },
-                {
-                  type: 'Column',
-                  width: 'auto',
-                  items: [
-                    {
-                      type: 'TextBlock',
-                      text: `Last Update: ${lastUpdate}`,
-                      size: 'Small',
-                      color: 'Default'
-                    }
-                  ]
-                }
-              ]
+              type: 'TextBlock',
+              text: ' ',
+              size: 'Small'
+            },
+            {
+              type: 'TextBlock',
+              text: `**${pendingIMD.toLocaleString('en-IN')}** records pending`,
+              size: 'ExtraLarge',
+              weight: 'Bolder',
+              color: pendingIMD > 10000 ? 'Warning' : 'Good',
+              wrap: true
+            },
+            {
+              type: 'TextBlock',
+              text: ' ',
+              size: 'Small'
+            },
+            {
+              type: 'TextBlock',
+              text: `📅 Last Update: ${lastUpdate}`,
+              size: 'Medium',
+              color: 'Default',
+              wrap: true
             }
           ]
         },
