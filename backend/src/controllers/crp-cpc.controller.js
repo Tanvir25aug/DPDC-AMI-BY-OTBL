@@ -11,7 +11,7 @@ const cacheService = require('../services/cache.service');
 const getCRPCPCList = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
+    const limit = Math.min(parseInt(req.query.limit) || 50, 500); // Reduced from 100 to 50 default
     const search = req.query.search || null;
     const offset = (page - 1) * limit;
 
@@ -39,7 +39,7 @@ const getCRPCPCList = async (req, res) => {
         { search }
       );
       totalCount = countResult[0]?.TOTAL || countResult[0]?.total || 0;
-      cacheService.set(countCacheKey, totalCount, 5 * 60 * 1000); // Cache for 5 minutes
+      cacheService.set(countCacheKey, totalCount, 30 * 60 * 1000); // Cache for 30 minutes (increased from 5)
     }
 
     // Get paginated data
@@ -62,8 +62,8 @@ const getCRPCPCList = async (req, res) => {
       }
     };
 
-    // Cache the response for 2 minutes
-    cacheService.set(cacheKey, response, 2 * 60 * 1000);
+    // Cache the response for 15 minutes (increased from 2)
+    cacheService.set(cacheKey, response, 15 * 60 * 1000);
 
     res.json({
       success: true,

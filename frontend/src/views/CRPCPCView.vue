@@ -119,15 +119,13 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CRP Account</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total CPC</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Billed This Month</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Not Billed This Month</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total CPC Connections</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-if="loading" class="text-center">
-                <td colspan="5" class="px-6 py-8">
+                <td colspan="3" class="px-6 py-8">
                   <div class="flex justify-center items-center">
                     <svg class="w-8 h-8 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -138,7 +136,7 @@
                 </td>
               </tr>
               <tr v-else-if="crpList.length === 0" class="text-center">
-                <td colspan="5" class="px-6 py-8">
+                <td colspan="3" class="px-6 py-8">
                   <div class="text-gray-500">
                     <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -150,30 +148,20 @@
               <tr v-else v-for="crp in crpList" :key="crp.CRP_ID" class="hover:bg-gray-50 transition-colors">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ crp.CRP_ACCOUNT_NO }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {{ crp.TOTAL_CPC_COUNT }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    {{ crp.BILLED_THIS_MONTH }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    {{ crp.NOT_BILLED_THIS_MONTH }}
+                  <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                    {{ crp.TOTAL_CPC_COUNT }} connections
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                   <button
                     @click="viewCPCDetails(crp)"
-                    class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs font-medium"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
                   >
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    View CPC
+                    View Details
                   </button>
                 </td>
               </tr>
@@ -345,7 +333,7 @@ const loadingCPC = ref(false);
 const error = ref(null);
 const searchQuery = ref('');
 const currentPage = ref(1);
-const pageSize = ref(100);
+const pageSize = ref(50); // Reduced from 100 to 50 for faster loading
 const totalCount = ref(0);
 const totalPages = ref(0);
 
