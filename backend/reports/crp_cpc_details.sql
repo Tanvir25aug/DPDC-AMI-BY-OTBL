@@ -1,4 +1,4 @@
--- CRP-CPC Details - OPTIMIZED (Deduplicated)
+-- CRP-CPC Details - OPTIMIZED (Properly Deduplicated)
 -- Get all CPC (meters) under a specific CRP with customer information
 -- Parameters: :crpId (required)
 
@@ -14,7 +14,7 @@ WITH CPC_LIST AS (
     WHERE cpc_cust.char_type_cd = 'CM_LEGCY'
 ),
 METER_INFO AS (
-    -- Get meter numbers
+    -- Get meter numbers (one per CPC)
     SELECT
         cpc.d1_sp_id,
         MAX(mtr.id_value) AS METER_NO
@@ -27,6 +27,27 @@ METER_INFO AS (
         AND LENGTH(mtr.id_value) = 8
     GROUP BY cpc.d1_sp_id
 ),
+SP_INFO AS (
+    -- Get service point info (one per CPC customer)
+    SELECT
+        cpc.CPC_CUSTOMER_NO,
+        MIN(sp.sp_id) AS sp_id  -- Take first SP only
+    FROM CPC_LIST cpc
+    LEFT JOIN ci_sp_char sp_char ON sp_char.adhoc_char_val = cpc.CPC_CUSTOMER_NO
+        AND sp_char.char_type_cd = 'CM_LEGCY'
+    LEFT JOIN ci_sp sp ON sp.sp_id = sp_char.sp_id
+    GROUP BY cpc.CPC_CUSTOMER_NO
+),
+SA_INFO AS (
+    -- Get service agreement info (one per SP)
+    SELECT
+        sp.sp_id,
+        MIN(sa.sa_id) AS sa_id  -- Take first active SA only
+    FROM SP_INFO sp
+    JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = sp.sp_id
+    JOIN ci_sa sa ON sa.sa_id = sa_sp.sa_id AND sa.sa_type_cd = 'PPD'
+    GROUP BY sp.sp_id
+),
 BILLING_INFO AS (
     -- Get latest billing info
     SELECT
@@ -34,7 +55,7 @@ BILLING_INFO AS (
         MAX(bs.end_dt) AS LAST_BILL_DATE,
         MAX(CASE WHEN bs.end_dt >= TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
     FROM ci_bseg bs
-    JOIN ci_sa sa ON sa.sa_id = bs.sa_id AND sa.sa_type_cd = 'PPD'
+    JOIN SA_INFO sa ON sa.sa_id = bs.sa_id
     WHERE bs.bseg_stat_flg <> '60'
     GROUP BY sa.sa_id
 )
@@ -42,7 +63,7 @@ SELECT
     cpc.CPC_CUSTOMER_NO AS CPC_SA_ID,
     cpc.CPC_CUSTOMER_NO AS CPC_CUSTOMER_NO,
     COALESCE(m.METER_NO, 'N/A') AS METER_NO,
-    COALESCE(TO_CHAR(sp.sp_id), 'N/A') AS SERVICE_POINT_ID,
+    COALESCE(TO_CHAR(sp_info.sp_id), 'N/A') AS SERVICE_POINT_ID,
     COALESCE(per_name.entity_name, cpc.CPC_CUSTOMER_NO) AS CUSTOMER_NAME,
     COALESCE(prem.address1 || ', ' || prem.address2 || ', ' || prem.address3, 'N/A') AS ADDRESS,
     COALESCE(nocs.descr, 'N/A') AS NOCS_NAME,
@@ -66,13 +87,9 @@ SELECT
     COALESCE(bal.PAYOFF_BAL, 0) AS CURRENT_BALANCE
 FROM CPC_LIST cpc
 LEFT JOIN METER_INFO m ON m.d1_sp_id = cpc.d1_sp_id
-LEFT JOIN ci_sp_char sp_char ON sp_char.adhoc_char_val = cpc.CPC_CUSTOMER_NO
-    AND sp_char.char_type_cd = 'CM_LEGCY'
-    AND ROWNUM = 1  -- Take first match only
-LEFT JOIN ci_sp sp ON sp.sp_id = sp_char.sp_id
-LEFT JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = sp.sp_id
-    AND ROWNUM = 1  -- Take first match only
-LEFT JOIN ci_sa sa ON sa.sa_id = sa_sp.sa_id AND sa.sa_type_cd = 'PPD'
+LEFT JOIN SP_INFO sp_info ON sp_info.CPC_CUSTOMER_NO = cpc.CPC_CUSTOMER_NO
+LEFT JOIN SA_INFO sa_info ON sa_info.sp_id = sp_info.sp_id
+LEFT JOIN ci_sa sa ON sa.sa_id = sa_info.sa_id
 LEFT JOIN ci_acct acc ON acc.acct_id = sa.acct_id
 LEFT JOIN ci_acct_per acc_per ON acc_per.acct_id = acc.acct_id
     AND acc_per.main_cust_sw = 'Y'
@@ -94,6 +111,6 @@ LEFT JOIN (
     GROUP BY sa_id
 ) bal ON bal.sa_id = sa.sa_id
 ORDER BY
-    CASE WHEN sp.sp_id IS NOT NULL THEN 0 ELSE 1 END,  -- Show complete records first
+    CASE WHEN sp_info.sp_id IS NOT NULL THEN 0 ELSE 1 END,  -- Show complete records first
     m.METER_NO NULLS LAST,
     cpc.CPC_CUSTOMER_NO
