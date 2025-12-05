@@ -16,6 +16,7 @@ const batchMonitoringScheduler = require('./schedulers/batch-monitoring.schedule
 const teamsService = require('./services/teams.service');
 const teamsReportsScheduler = require('./schedulers/teams-reports.scheduler');
 const teamsWebhooks = require('./config/teams-webhooks');
+const telegramBotService = require('./services/telegram-bot.service');
 
 const app = express();
 // Trust only the first proxy (Nginx) for X-Forwarded-For headers
@@ -93,6 +94,13 @@ async function startServer() {
     logger.info('✅ Teams service initialized');
     await teamsReportsScheduler.startScheduler();
     logger.info('✅ NOCS Balance Summary Scheduler started (runs every 60 minutes / 1 hour)');
+    logger.info('========================================');
+
+    // Initialize Telegram Bot
+    logger.info('========================================');
+    logger.info('Initializing Telegram Bot...');
+    telegramBotService.initialize();
+    logger.info('✅ Telegram Bot initialized and ready at @DPDC_customerInfo_bot');
     logger.info('========================================');
 
     // Start server
