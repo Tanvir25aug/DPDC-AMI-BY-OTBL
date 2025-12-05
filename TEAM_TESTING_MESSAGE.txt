@@ -1,0 +1,142 @@
+═══════════════════════════════════════════════════════════════
+📱 DPDC CUSTOMER INFO TELEGRAM BOT - NOW READY FOR TESTING!
+═══════════════════════════════════════════════════════════════
+
+Dear Team,
+
+We're excited to announce our new DPDC Customer Info Telegram Bot is
+live and ready for your testing! 🎉
+
+═══════════════════════════════════════════════════════════════
+🤖 BOT LINK
+═══════════════════════════════════════════════════════════════
+
+Click here to start: https://t.me/DPDC_customerInfo_bot
+
+Or search for: @DPDC_customerInfo_bot in Telegram
+
+═══════════════════════════════════════════════════════════════
+✨ BOT FEATURES
+═══════════════════════════════════════════════════════════════
+
+The bot provides instant access to customer electricity information:
+
+1. 👤 CUSTOMER INFORMATION
+   • Customer ID
+   • Meter Number
+   • NOCS Location
+   • Phone Number
+   • Address
+   • Current Balance (Credit/Due status)
+   • Last Bill Date
+
+2. 📊 BILLING HISTORY
+   • View monthly consumption (kWh)
+   • View monthly charges (৳)
+   • Filter by: Last Month, Last 6 Months, Last Year, All Records
+   • See period totals
+
+3. 💳 RECHARGE HISTORY
+   • View all recharge transactions
+   • View recharge amounts and energy costs
+   • Filter by: Last Recharge, Last 6 Months, Last Year, All Records
+   • See total recharges
+
+═══════════════════════════════════════════════════════════════
+🚀 HOW TO USE
+═══════════════════════════════════════════════════════════════
+
+STEP 1: Open the bot
+   → Click: https://t.me/DPDC_customerInfo_bot
+
+STEP 2: Start the bot
+   → Click "START" button or type /start
+
+STEP 3: Send customer number
+   → Type a Customer Number (e.g., 30295639)
+   → OR type a Meter Number (e.g., 70048800)
+
+STEP 4: Choose what to view
+   → Click on any of the 3 buttons:
+     • Customer Information
+     • Billing History
+     • Recharge History
+
+STEP 5: Navigate freely
+   → Use "Back to Menu" to return
+   → Use "Change Period" to view different time ranges
+
+═══════════════════════════════════════════════════════════════
+🧪 TESTING CHECKLIST
+═══════════════════════════════════════════════════════════════
+
+Please test the following:
+
+✅ Search by Customer Number
+✅ Search by Meter Number
+✅ View customer information
+✅ Check billing history (all time periods)
+✅ Check recharge history (all time periods)
+✅ Test navigation (Back to Menu buttons)
+✅ Try invalid/non-existent customer numbers
+✅ Check if data matches the web interface
+✅ Test response time and performance
+
+═══════════════════════════════════════════════════════════════
+📝 PLEASE REPORT
+═══════════════════════════════════════════════════════════════
+
+We need your feedback on:
+
+• Any bugs or errors
+• Incorrect or missing data
+• UI/UX issues or suggestions
+• Confusing messages or flows
+• Performance problems
+• Any features you think should be added
+
+═══════════════════════════════════════════════════════════════
+💡 TESTING TIPS
+═══════════════════════════════════════════════════════════════
+
+✅ DO:
+• Wait for data to load before clicking buttons
+• Test with multiple different customer numbers
+• Try all the different time period filters
+• Send a new number to search for different customers
+
+❌ DON'T:
+• Click old buttons from previous searches
+• Send multiple requests at the same time
+• Share customer data publicly
+
+═══════════════════════════════════════════════════════════════
+📞 SUPPORT
+═══════════════════════════════════════════════════════════════
+
+If you encounter any issues or have questions, please contact:
+• Technical Team: [Your Contact]
+• Support: [Your Email]
+
+═══════════════════════════════════════════════════════════════
+🎯 TEST CUSTOMER NUMBERS (FOR REFERENCE)
+═══════════════════════════════════════════════════════════════
+
+You can use these for testing:
+• Customer ID: 30295639
+• Meter Number: 70048800
+
+(Or use any valid customer number from the database)
+
+═══════════════════════════════════════════════════════════════
+
+🤖 START TESTING NOW: https://t.me/DPDC_customerInfo_bot
+
+Let's make this bot amazing together! 🚀
+
+Thank you for your support!
+
+═══════════════════════════════════════════════════════════════
+Last Updated: December 5, 2024
+Version: 1.0.0
+═══════════════════════════════════════════════════════════════

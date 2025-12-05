@@ -184,7 +184,12 @@ async function startServer() {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection at:', {
+    promise: promise,
+    reason: reason,
+    message: reason?.message || reason,
+    stack: reason?.stack || 'No stack trace available'
+  });
 });
 
 // Handle uncaught exceptions

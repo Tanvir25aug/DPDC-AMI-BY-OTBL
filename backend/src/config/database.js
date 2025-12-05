@@ -52,13 +52,16 @@ const config = {
 const env = process.env.NODE_ENV || 'development';
 const sequelize = new Sequelize(config[env]);
 
-// Test connection
-sequelize.authenticate()
-  .then(() => {
+// Test connection (async IIFE to avoid unhandled promise)
+(async () => {
+  try {
+    await sequelize.authenticate();
     console.log(`✅ PostgreSQL connected successfully [${env}]`);
-  })
-  .catch(err => {
+  } catch (err) {
     console.error('❌ PostgreSQL connection failed:', err.message);
-  });
+    // Don't exit process - allow server to start even if PostgreSQL is down
+    // Some features may not work, but API will still be accessible
+  }
+})();
 
 module.exports = sequelize;

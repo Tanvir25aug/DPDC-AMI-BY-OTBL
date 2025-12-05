@@ -41,16 +41,32 @@ class TelegramBotService {
    */
   setupHandlers() {
     // Handle /start, /hello, /hi commands
-    this.bot.onText(/\/(start|hello|hi)/i, (msg) => this.handleGreeting(msg));
+    this.bot.onText(/\/(start|hello|hi)/i, async (msg) => {
+      try {
+        await this.handleGreeting(msg);
+      } catch (error) {
+        logger.error('[Telegram Bot] Error in greeting handler:', error);
+      }
+    });
 
     // Handle text messages (customer number or meter number)
-    this.bot.on('message', (msg) => {
-      if (!msg.text || msg.text.startsWith('/')) return;
-      this.handleMessage(msg);
+    this.bot.on('message', async (msg) => {
+      try {
+        if (!msg.text || msg.text.startsWith('/')) return;
+        await this.handleMessage(msg);
+      } catch (error) {
+        logger.error('[Telegram Bot] Error in message handler:', error);
+      }
     });
 
     // Handle callback queries (button presses)
-    this.bot.on('callback_query', (query) => this.handleCallback(query));
+    this.bot.on('callback_query', async (query) => {
+      try {
+        await this.handleCallback(query);
+      } catch (error) {
+        logger.error('[Telegram Bot] Error in callback handler:', error);
+      }
+    });
 
     logger.info('[Telegram Bot] Handlers registered');
   }
@@ -81,8 +97,11 @@ I'll provide you with your account details and billing information.`;
     const chatId = msg.chat.id;
     const searchValue = msg.text.trim();
 
+    logger.info(`[Telegram Bot] Received message from chatId ${chatId}: "${searchValue}"`);
+
     // Check if it's a customer number or meter number
     if (!searchValue || searchValue.length < 5) {
+      logger.warn(`[Telegram Bot] Invalid search value from chatId ${chatId}: too short`);
       await this.bot.sendMessage(
         chatId,
         '⚠️ Please provide a valid Customer Number or Meter Number (minimum 5 digits).'
@@ -91,6 +110,7 @@ I'll provide you with your account details and billing information.`;
     }
 
     // Send loading message
+    logger.info(`[Telegram Bot] Searching for customer: ${searchValue}`);
     const loadingMsg = await this.bot.sendMessage(chatId, '⏳ Fetching customer details...');
 
     try {
@@ -98,12 +118,15 @@ I'll provide you with your account details and billing information.`;
       const customerData = await this.fetchCustomerData(searchValue);
 
       if (!customerData) {
+        logger.warn(`[Telegram Bot] Customer not found for search: ${searchValue}`);
         await this.bot.editMessageText(
           '❌ Customer not found. Please check the Customer Number or Meter Number and try again.',
           { chat_id: chatId, message_id: loadingMsg.message_id }
         );
         return;
       }
+
+      logger.info(`[Telegram Bot] Customer found: ${customerData.customer.CUSTOMER_NAME} (ID: ${customerData.customer.CUSTOMER_ID})`);
 
       // Store customer data in session
       userSessions.set(chatId, {
@@ -123,14 +146,22 @@ I'll provide you with your account details and billing information.`;
         { parse_mode: 'Markdown' }
       );
 
+      logger.info(`[Telegram Bot] Showing main menu to chatId ${chatId}`);
       // Show main menu
       await this.showMainMenu(chatId);
+
+      logger.info(`[Telegram Bot] Successfully processed request for chatId ${chatId}`);
     } catch (error) {
       logger.error('[Telegram Bot] Error fetching customer data:', error);
-      await this.bot.editMessageText(
-        '❌ An error occurred while fetching customer details. Please try again later.',
-        { chat_id: chatId, message_id: loadingMsg.message_id }
-      );
+      try {
+        await this.bot.editMessageText(
+          '❌ An error occurred while fetching customer details. Please try again later.',
+          { chat_id: chatId, message_id: loadingMsg.message_id }
+        );
+      } catch (editError) {
+        logger.error('[Telegram Bot] Failed to edit error message:', editError);
+        await this.bot.sendMessage(chatId, '❌ An error occurred. Please try again later.');
+      }
     }
   }
 
@@ -139,46 +170,68 @@ I'll provide you with your account details and billing information.`;
    */
   async fetchCustomerData(searchValue) {
     try {
+      logger.info(`[Telegram Bot] fetchCustomerData starting for: ${searchValue}`);
+
       // Try customer ID first
       let customerData = await reportsService.executeReport('customer_details_search', {
         searchValue
       });
 
+      logger.info(`[Telegram Bot] Customer ID search result: ${customerData?.length || 0} rows`);
+
       // If not found, try meter number
       if (!customerData || customerData.length === 0) {
+        logger.info(`[Telegram Bot] Trying meter number search...`);
         customerData = await reportsService.executeReport('customer_search_by_meter', {
           meterNumber: searchValue
         });
+        logger.info(`[Telegram Bot] Meter number search result: ${customerData?.length || 0} rows`);
       }
 
       if (!customerData || customerData.length === 0) {
+        logger.warn(`[Telegram Bot] No customer found for: ${searchValue}`);
         return null;
       }
 
       const customer = customerData[0];
       const custId = customer.CUSTOMER_ID || customer.SA_ID;
+      const saId = customer.SA_ID; // Service Agreement ID for recharge history
 
-      // Fetch all data (billing, recharge, etc.)
+      logger.info(`[Telegram Bot] Fetching billing and recharge data for custId: ${custId}, saId: ${saId}`);
+
+      // Fetch all data (billing, recharge, etc.) with maxRows: 0 for unlimited
       const [billingData, rechargeHistory] = await Promise.all([
         reportsService.executeReport('customer_billing_details', {
           custId,
           startDate: null,
           endDate: null
-        }),
-        reportsService.executeReport('customer_recharge_history', { custId })
+        }, { maxRows: 0 }),
+        reportsService.executeReport('customer_recharge_history', { saId }, { maxRows: 0 })
       ]);
 
+      logger.info(`[Telegram Bot] Fetched ${billingData?.length || 0} billing records and ${rechargeHistory?.length || 0} recharge records`);
+
+      // Add meter number from billing data (first record)
+      if (billingData && billingData.length > 0 && billingData[0].MSN) {
+        customer.METER_NO = billingData[0].MSN;
+        logger.info(`[Telegram Bot] Meter number found: ${customer.METER_NO}`);
+      } else {
+        logger.warn(`[Telegram Bot] No meter number found in billing data`);
+      }
+
       // Aggregate monthly billing
-      const monthlyBilling = this.aggregateMonthlyBilling(billingData);
+      const monthlyBilling = this.aggregateMonthlyBilling(billingData || []);
 
       // Calculate analytics
-      const analytics = this.calculateAnalytics(billingData, rechargeHistory);
+      const analytics = this.calculateAnalytics(billingData || [], rechargeHistory || []);
+
+      logger.info(`[Telegram Bot] Data aggregation completed. Monthly records: ${monthlyBilling?.length || 0}`);
 
       return {
         customer,
-        dailyBilling: billingData,
-        monthlyBilling,
-        rechargeHistory,
+        dailyBilling: billingData || [],
+        monthlyBilling: monthlyBilling || [],
+        rechargeHistory: rechargeHistory || [],
         analytics
       };
     } catch (error) {
@@ -199,46 +252,102 @@ I'll provide you with your account details and billing information.`;
       ]
     };
 
+    logger.info(`[Telegram Bot] Sending main menu to chatId ${chatId} with keyboard:`, JSON.stringify(keyboard));
+
     await this.bot.sendMessage(chatId, '📋 *Please select an option:*', {
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
+
+    logger.info(`[Telegram Bot] Main menu sent successfully to chatId ${chatId}`);
   }
 
   /**
    * Handle callback queries (button presses)
    */
   async handleCallback(query) {
-    const chatId = query.message.chat.id;
-    const data = query.callback_data;
-
-    // Get user session
-    const session = userSessions.get(chatId);
-
-    if (!session) {
-      await this.bot.answerCallbackQuery(query.id, {
-        text: 'Session expired. Please send your customer number again.',
-        show_alert: true
+    try {
+      // Debug: Log entire query object structure
+      logger.info(`[Telegram Bot] Raw callback query received:`, {
+        id: query.id,
+        from: query.from?.id,
+        message_id: query.message?.message_id,
+        chat_id: query.message?.chat?.id,
+        data: query.data,
+        callback_data: query.callback_data,
+        query_keys: Object.keys(query)
       });
-      return;
-    }
 
-    // Answer callback query
-    await this.bot.answerCallbackQuery(query.id);
+      const chatId = query.message.chat.id;
+      const data = query.data || query.callback_data; // Try both fields
 
-    // Handle different menu options
-    if (data === 'menu_customer_info') {
-      await this.sendCustomerInfo(chatId, session.customerData);
-    } else if (data === 'menu_billing_history') {
-      await this.showBillingHistoryMenu(chatId);
-    } else if (data === 'menu_recharge_history') {
-      await this.showRechargeHistoryMenu(chatId);
-    } else if (data.startsWith('billing_')) {
-      await this.sendBillingHistory(chatId, session.customerData, data);
-    } else if (data.startsWith('recharge_')) {
-      await this.sendRechargeHistory(chatId, session.customerData, data);
-    } else if (data === 'back_to_main') {
-      await this.showMainMenu(chatId);
+      logger.info(`[Telegram Bot] Callback received from chatId ${chatId}, data: "${data || 'undefined'}"`);
+
+      // Check if callback data exists
+      if (!data) {
+        logger.warn('[Telegram Bot] Received callback query without data - likely from old message');
+        logger.warn('[Telegram Bot] Full query object:', JSON.stringify(query, null, 2));
+
+        await this.bot.answerCallbackQuery(query.id, {
+          text: '⚠️ This button has expired. Please send your customer number again to get fresh data.',
+          show_alert: true
+        });
+
+        // Send help message
+        await this.bot.sendMessage(
+          chatId,
+          '📋 Please send your *Customer Number* or *Meter Number* to continue.',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Get user session
+      const session = userSessions.get(chatId);
+
+      if (!session) {
+        logger.warn(`[Telegram Bot] Session expired for chatId ${chatId}`);
+        await this.bot.answerCallbackQuery(query.id, {
+          text: '⏱️ Session expired. Please send your customer number again.',
+          show_alert: true
+        });
+
+        // Send help message
+        await this.bot.sendMessage(
+          chatId,
+          '📋 Please send your *Customer Number* or *Meter Number* to get started.',
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
+      // Answer callback query
+      await this.bot.answerCallbackQuery(query.id);
+
+      logger.info(`[Telegram Bot] Processing callback action: ${data}`);
+
+      // Handle different menu options
+      if (data === 'menu_customer_info') {
+        await this.sendCustomerInfo(chatId, session.customerData);
+      } else if (data === 'menu_billing_history') {
+        await this.showBillingHistoryMenu(chatId);
+      } else if (data === 'menu_recharge_history') {
+        await this.showRechargeHistoryMenu(chatId);
+      } else if (data.startsWith('billing_')) {
+        await this.sendBillingHistory(chatId, session.customerData, data);
+      } else if (data.startsWith('recharge_')) {
+        await this.sendRechargeHistory(chatId, session.customerData, data);
+      } else if (data === 'back_to_main') {
+        await this.showMainMenu(chatId);
+      } else {
+        logger.warn(`[Telegram Bot] Unknown callback data: ${data}`);
+        await this.bot.sendMessage(chatId, '❌ Unknown action. Please try again.');
+      }
+
+      logger.info(`[Telegram Bot] Callback action ${data} completed successfully`);
+    } catch (error) {
+      logger.error('[Telegram Bot] Error in handleCallback:', error);
+      await this.bot.sendMessage(query.message.chat.id, '❌ An error occurred. Please try again.');
     }
   }
 
@@ -246,6 +355,11 @@ I'll provide you with your account details and billing information.`;
    * Send customer information
    */
   async sendCustomerInfo(chatId, customerData) {
+    if (!customerData || !customerData.customer || !customerData.analytics) {
+      await this.bot.sendMessage(chatId, '❌ Unable to retrieve customer information. Please try again.');
+      return;
+    }
+
     const { customer, analytics } = customerData;
 
     const message = `
@@ -261,7 +375,6 @@ I'll provide you with your account details and billing information.`;
 ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.currentBalance > 0 ? '🟢 *Status:* Credit' : '⚪ *Status:* Paid'}
 
 📅 *Last Bill Date:* ${this.formatDate(customer.LAST_BILL_DATE)}
-📊 *Meter Status:* ${customer.METER_STATUS || 'Unknown'}
     `.trim();
 
     await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
@@ -298,6 +411,11 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
    * Send billing history
    */
   async sendBillingHistory(chatId, customerData, filterType) {
+    if (!customerData || !customerData.customer || !customerData.monthlyBilling) {
+      await this.bot.sendMessage(chatId, '❌ Unable to retrieve billing history. Please try again.');
+      return;
+    }
+
     const { customer, monthlyBilling } = customerData;
 
     // Filter monthly billing based on selection
@@ -324,7 +442,6 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
     let message = `
 📊 *Monthly Billing History (${periodText})*
 
-👤 *Customer:* ${customer.CUSTOMER_NAME || 'N/A'}
 📋 *Customer ID:* ${customer.CUSTOMER_ID || 'N/A'}
 ⚡ *Meter:* ${customer.METER_NO || 'N/A'}
 
@@ -383,6 +500,11 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
    * Send recharge history
    */
   async sendRechargeHistory(chatId, customerData, filterType) {
+    if (!customerData || !customerData.customer || !customerData.rechargeHistory) {
+      await this.bot.sendMessage(chatId, '❌ Unable to retrieve recharge history. Please try again.');
+      return;
+    }
+
     const { customer, rechargeHistory } = customerData;
 
     if (!rechargeHistory || rechargeHistory.length === 0) {
@@ -390,24 +512,32 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
       return;
     }
 
+    // IMPORTANT: Sort recharge history by date DESCENDING (newest first)
+    const sortedRechargeHistory = [...rechargeHistory].sort((a, b) => {
+      return new Date(b.RECHARGE_DATE) - new Date(a.RECHARGE_DATE);
+    });
+
+    logger.info(`[Telegram Bot] Recharge history sorted. First: ${sortedRechargeHistory[0]?.RECHARGE_DATE}, Last: ${sortedRechargeHistory[sortedRechargeHistory.length - 1]?.RECHARGE_DATE}`);
+
     // Filter recharge history based on selection
-    let filteredRecharge = rechargeHistory;
+    let filteredRecharge = sortedRechargeHistory;
     let periodText = 'All Time';
 
     if (filterType === 'recharge_last') {
-      filteredRecharge = rechargeHistory.slice(-1);
+      // Get the first record (most recent after sorting)
+      filteredRecharge = [sortedRechargeHistory[0]];
       periodText = 'Last Recharge';
     } else if (filterType === 'recharge_last_6_months') {
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      filteredRecharge = rechargeHistory.filter(
+      filteredRecharge = sortedRechargeHistory.filter(
         (r) => new Date(r.RECHARGE_DATE) >= sixMonthsAgo
       );
       periodText = 'Last 6 Months';
     } else if (filterType === 'recharge_last_year') {
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      filteredRecharge = rechargeHistory.filter((r) => new Date(r.RECHARGE_DATE) >= oneYearAgo);
+      filteredRecharge = sortedRechargeHistory.filter((r) => new Date(r.RECHARGE_DATE) >= oneYearAgo);
       periodText = 'Last 1 Year';
     }
 
@@ -420,7 +550,6 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
     let message = `
 💳 *Recharge History (${periodText})*
 
-👤 *Customer:* ${customer.CUSTOMER_NAME || 'N/A'}
 📋 *Customer ID:* ${customer.CUSTOMER_ID || 'N/A'}
 ⚡ *Meter:* ${customer.METER_NO || 'N/A'}
 
@@ -486,6 +615,15 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
    * Calculate analytics
    */
   calculateAnalytics(billingData, rechargeHistory) {
+    if (!billingData || billingData.length === 0) {
+      return {
+        totalConsumption: 0,
+        totalCharges: 0,
+        totalRecharge: 0,
+        currentBalance: 0
+      };
+    }
+
     const totalConsumption = billingData.reduce((sum, b) => sum + parseFloat(b.QUANTITY || 0), 0);
     const totalCharges = billingData.reduce((sum, b) => sum + parseFloat(b.DAILY_CHARGES || 0), 0);
     const totalRecharge = rechargeHistory.reduce(
@@ -493,12 +631,17 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
       0
     );
 
-    const currentBalance = totalRecharge - totalCharges;
+    // Get current balance from the LATEST billing record (PAYOFF_BAL field)
+    // Multiply by -1 to get the correct sign (negative = due, positive = credit)
+    const payoffBal = billingData[billingData.length - 1]?.PAYOFF_BAL || 0;
+    const currentBalance = Math.round(parseFloat(payoffBal) * -1 * 100) / 100;
+
+    logger.info(`[Telegram Bot] Balance calculation: PAYOFF_BAL=${payoffBal}, currentBalance=${currentBalance}`);
 
     return {
-      totalConsumption,
-      totalCharges,
-      totalRecharge,
+      totalConsumption: Math.round(totalConsumption * 100) / 100,
+      totalCharges: Math.round(totalCharges * 100) / 100,
+      totalRecharge: Math.round(totalRecharge * 100) / 100,
       currentBalance
     };
   }

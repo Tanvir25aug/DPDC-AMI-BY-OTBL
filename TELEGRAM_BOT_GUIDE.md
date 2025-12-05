@@ -1,8 +1,46 @@
 # DPDC Telegram Customer Info Bot
 
+---
+
+## 📢 **TEAM TESTING ANNOUNCEMENT**
+
+### 🤖 **Bot Link:** [https://t.me/DPDC_customerInfo_bot](https://t.me/DPDC_customerInfo_bot)
+
+**Dear Team,**
+
+We're excited to announce our new **DPDC Customer Info Telegram Bot** is ready for testing! 🎉
+
+This bot allows customers to instantly check their electricity account information, billing history, and recharge records directly through Telegram - no need to log into the website!
+
+### **Quick Start:**
+1. **Click the link:** [https://t.me/DPDC_customerInfo_bot](https://t.me/DPDC_customerInfo_bot)
+2. **Press "START"** or type `/start`
+3. **Send a Customer Number** (e.g., `30295639`) or **Meter Number** (e.g., `70048800`)
+4. **Explore the features** using the interactive buttons
+
+### **What Can You Test:**
+✅ Customer Information lookup
+✅ Monthly billing history (Last Month, 6 Months, Year, All Records)
+✅ Recharge transaction history
+✅ Balance checking (Credit/Due status)
+✅ Navigation and button responsiveness
+✅ Error handling (try invalid numbers)
+
+### **Please Test and Report:**
+- Any bugs or errors you encounter
+- UI/UX suggestions
+- Missing features
+- Performance issues
+- Any confusion in the user flow
+
+**Let's make this bot amazing!** 🚀
+
+---
+
 ## Bot Information
 
 **Bot Username:** [@DPDC_customerInfo_bot](https://t.me/DPDC_customerInfo_bot)
+**Bot Link:** `https://t.me/DPDC_customerInfo_bot`
 **Bot Token:** `8575870159:AAHupxIlKBLpBS_7PEY9t41qfeNLdl8tobk`
 
 ## Features
@@ -49,7 +87,6 @@ Shows:
 - Address
 - **Current Balance** (Due/Credit/Paid)
 - **Last Bill Date**
-- Meter Status
 
 #### Option 2: Billing History 📊
 You can view monthly billing for:
@@ -118,7 +155,6 @@ Bot: 👤 Customer Information
      🔴 Status: Due Amount
 
      📅 Last Bill Date: Nov 24, 2024
-     📊 Meter Status: Connected
 
      [Button: ⬅️ Back to Menu]
 ```

@@ -33,7 +33,11 @@ class TeamsReportsScheduler {
 
       // Then run on interval
       this.intervalId = setInterval(async () => {
-        await this.runReportCycle();
+        try {
+          await this.runReportCycle();
+        } catch (error) {
+          logger.error('[Teams Reports] Error in interval callback:', error);
+        }
       }, this.intervalMs);
 
       this.isRunning = true;

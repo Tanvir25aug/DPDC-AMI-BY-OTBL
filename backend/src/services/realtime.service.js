@@ -24,11 +24,15 @@ class RealtimeService {
     logger.info(`[Realtime] Starting data polling every ${intervalMs}ms (${intervalMs / 1000}s)`);
 
     // Fetch immediately
-    this.fetchAndBroadcast();
+    this.fetchAndBroadcast().catch(err => {
+      logger.error('[Realtime] Error in initial fetch:', err);
+    });
 
     // Then set interval
     this.pollingInterval = setInterval(() => {
-      this.fetchAndBroadcast();
+      this.fetchAndBroadcast().catch(err => {
+        logger.error('[Realtime] Error in polling fetch:', err);
+      });
     }, this.updateInterval);
   }
 

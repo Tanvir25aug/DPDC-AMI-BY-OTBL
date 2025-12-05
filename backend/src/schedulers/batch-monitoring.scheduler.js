@@ -141,16 +141,24 @@ function startScheduler() {
 
   logger.info(`[Batch Monitoring Scheduler] Starting scheduler with cron: ${cronExpression}`);
 
-  const job = cron.schedule(cronExpression, () => {
-    runBatchMonitoringJob();
+  const job = cron.schedule(cronExpression, async () => {
+    try {
+      await runBatchMonitoringJob();
+    } catch (error) {
+      logger.error('[Batch Monitoring Scheduler] Error in scheduled job:', error);
+    }
   }, {
     timezone: 'Asia/Dhaka'
   });
 
   // Run immediately on startup
   logger.info('[Batch Monitoring Scheduler] Running initial batch monitoring job...');
-  setTimeout(() => {
-    runBatchMonitoringJob();
+  setTimeout(async () => {
+    try {
+      await runBatchMonitoringJob();
+    } catch (error) {
+      logger.error('[Batch Monitoring Scheduler] Error in initial job:', error);
+    }
   }, 5000); // Wait 5 seconds after server start
 
   logger.info('[Batch Monitoring Scheduler] Scheduler started successfully');
