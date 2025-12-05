@@ -599,14 +599,15 @@ function aggregateMonthlyBilling(dailyData) {
   const monthlyMap = new Map();
 
   dailyData.forEach(record => {
-    const endDate = new Date(record.END_DT);
-    const monthKey = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}`;
+    // Use START_DT to determine which month the billing record belongs to
+    const startDate = new Date(record.START_DT);
+    const monthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
 
     if (!monthlyMap.has(monthKey)) {
       monthlyMap.set(monthKey, {
         MONTH: monthKey,
-        YEAR: endDate.getFullYear(),
-        MONTH_NAME: endDate.toLocaleString('en-US', { month: 'long' }),
+        YEAR: startDate.getFullYear(),
+        MONTH_NAME: startDate.toLocaleString('en-US', { month: 'long' }),
         TOTAL_CHARGES: 0,
         TOTAL_CONSUMPTION: 0,
         BILLING_DAYS: 0,
@@ -622,7 +623,12 @@ function aggregateMonthlyBilling(dailyData) {
     monthData.BILLING_DAYS += 1;
     monthData.RECORDS_COUNT += 1;
 
-    // Update end date to latest
+    // Update start date to earliest in the month
+    if (new Date(record.START_DT) < new Date(monthData.START_DATE)) {
+      monthData.START_DATE = record.START_DT;
+    }
+
+    // Update end date to latest in the month
     if (new Date(record.END_DT) > new Date(monthData.END_DATE)) {
       monthData.END_DATE = record.END_DT;
     }
