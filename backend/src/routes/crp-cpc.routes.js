@@ -16,6 +16,10 @@ router.get('/list', authenticate, crpCpcController.getCRPCPCList);
 // Params: crpId
 router.get('/details/:crpId', authenticate, crpCpcController.getCPCDetails);
 
+// Get CPC count by NOCS for a specific CRP
+// Params: crpId
+router.get('/nocs-summary/:crpId', authenticate, crpCpcController.getCPCNocsSummary);
+
 // Clear cache (admin only)
 router.post('/cache/clear', authenticate, crpCpcController.clearCache);
 

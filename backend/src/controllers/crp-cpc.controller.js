@@ -141,6 +141,70 @@ const getCPCDetails = async (req, res) => {
 };
 
 /**
+ * Get CPC Count by NOCS for a specific CRP
+ * Returns count of CPC customers grouped by NOCS area
+ * @param {string} crpId - CRP Account ID
+ */
+const getCPCNocsSummary = async (req, res) => {
+  try {
+    const { crpId } = req.params;
+
+    if (!crpId) {
+      return res.status(400).json({
+        success: false,
+        message: 'CRP ID is required'
+      });
+    }
+
+    // Check cache first
+    const cacheKey = `cpc_nocs_summary:crp:${crpId}`;
+    const cached = cacheService.get(cacheKey);
+
+    if (cached) {
+      console.log(`[CRP-CPC Controller] Returning cached NOCS summary for CRP ${crpId}`);
+      return res.json({
+        success: true,
+        data: cached,
+        cached: true,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Get NOCS summary
+    const data = await reportsService.executeReport(
+      'crp_cpc_nocs_summary',
+      { crpId }
+    );
+
+    // Calculate total count
+    const totalCount = data.reduce((sum, row) => sum + (row.CPC_COUNT || 0), 0);
+
+    const response = {
+      summary: data,
+      totalCount
+    };
+
+    // Cache the response for 10 minutes
+    cacheService.set(cacheKey, response, 10 * 60 * 1000);
+
+    res.json({
+      success: true,
+      ...response,
+      cached: false,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[CRP-CPC Controller] Error in getCPCNocsSummary:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch CPC NOCS summary',
+      error: error.message
+    });
+  }
+};
+
+/**
  * Clear CRP-CPC cache
  * Admin endpoint to clear cache manually
  */
@@ -149,7 +213,7 @@ const clearCache = async (req, res) => {
     // Clear all CRP-CPC related cache entries
     const cacheKeys = cacheService.keys();
     const crpCpcKeys = cacheKeys.filter(key =>
-      key.startsWith('crp_cpc_') || key.startsWith('cpc_details_')
+      key.startsWith('crp_cpc_') || key.startsWith('cpc_details_') || key.startsWith('cpc_nocs_')
     );
 
     crpCpcKeys.forEach(key => cacheService.delete(key));
@@ -174,5 +238,6 @@ const clearCache = async (req, res) => {
 module.exports = {
   getCRPCPCList,
   getCPCDetails,
+  getCPCNocsSummary,
   clearCache
 };
