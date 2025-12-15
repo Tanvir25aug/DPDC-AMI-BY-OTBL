@@ -31,45 +31,77 @@
       </div>
 
       <!-- Summary Cards -->
-      <div v-if="!loading && data.length" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Total Customers</p>
-              <p class="text-3xl font-bold mt-2">{{ formatNumber(summary.totalCustomers) }}</p>
+      <div v-if="!loading && data.length" class="space-y-6 mb-6">
+        <!-- Top Row: Total Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Total Customers</p>
+                <p class="text-3xl font-bold mt-2">{{ formatNumber(summary.totalCustomers) }}</p>
+              </div>
+              <div class="bg-white bg-opacity-20 rounded-full p-3">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
             </div>
-            <div class="bg-white bg-opacity-20 rounded-full p-3">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
+          </div>
+
+          <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-emerald-100 text-sm font-medium uppercase tracking-wider">Total Payoff Balance</p>
+                <p class="text-3xl font-bold mt-2">{{ formatCurrency(summary.totalPayoffBalance) }}</p>
+              </div>
+              <div class="bg-white bg-opacity-20 rounded-full p-3">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-purple-100 text-sm font-medium uppercase tracking-wider">Average Balance</p>
+                <p class="text-3xl font-bold mt-2">{{ formatCurrency(summary.averageBalance) }}</p>
+              </div>
+              <div class="bg-white bg-opacity-20 rounded-full p-3">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-green-100 text-sm font-medium uppercase tracking-wider">Total Payoff Balance</p>
-              <p class="text-3xl font-bold mt-2">{{ formatCurrency(summary.totalPayoffBalance) }}</p>
+        <!-- Bottom Row: Credit/Due Breakdown -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Balance Breakdown</h3>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div class="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+              <p class="text-sm font-medium text-green-700 mb-1">Credit Qty</p>
+              <p class="text-2xl font-bold text-green-600">{{ formatNumber(summary.creditQty) }}</p>
             </div>
-            <div class="bg-white bg-opacity-20 rounded-full p-3">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div class="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+              <p class="text-sm font-medium text-green-700 mb-1">Credit Balance</p>
+              <p class="text-xl font-bold text-green-600">{{ formatCurrency(summary.creditBalance) }}</p>
             </div>
-          </div>
-        </div>
-
-        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-purple-100 text-sm font-medium uppercase tracking-wider">Average Balance</p>
-              <p class="text-3xl font-bold mt-2">{{ formatCurrency(summary.averageBalance) }}</p>
+            <div class="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+              <p class="text-sm font-medium text-red-700 mb-1">Due Qty</p>
+              <p class="text-2xl font-bold text-red-600">{{ formatNumber(summary.dueQty) }}</p>
             </div>
-            <div class="bg-white bg-opacity-20 rounded-full p-3">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+            <div class="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+              <p class="text-sm font-medium text-red-700 mb-1">Due Balance</p>
+              <p class="text-xl font-bold text-red-600">{{ formatCurrency(summary.dueBalance) }}</p>
+            </div>
+            <div class="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p class="text-sm font-medium text-blue-700 mb-1">Net Balance</p>
+              <p class="text-xl font-bold" :class="summary.netBalance >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(summary.netBalance) }}
+              </p>
             </div>
           </div>
         </div>
@@ -273,16 +305,42 @@ const totalPages = computed(() => {
   return Math.ceil(filteredData.value.length / pageSize.value);
 });
 
-// Computed: Summary statistics
+// Computed: Summary statistics with credit/due breakdown
 const summary = computed(() => {
   const totalCustomers = data.value.length;
-  const totalPayoffBalance = data.value.reduce((sum, customer) => sum + (parseFloat(customer.PAYOFF_BALANCE) || 0), 0);
+
+  let creditQty = 0;
+  let creditBalance = 0;
+  let dueQty = 0;
+  let dueBalance = 0;
+
+  data.value.forEach(customer => {
+    const balance = parseFloat(customer.PAYOFF_BALANCE) || 0;
+
+    if (balance > 0) {
+      // Positive balance = Credit (customer has advance payment)
+      creditQty++;
+      creditBalance += balance;
+    } else if (balance < 0) {
+      // Negative balance = Due (customer owes money)
+      dueQty++;
+      dueBalance += balance;
+    }
+  });
+
+  const totalPayoffBalance = creditBalance + dueBalance;
   const averageBalance = totalCustomers > 0 ? totalPayoffBalance / totalCustomers : 0;
+  const netBalance = creditBalance + dueBalance;
 
   return {
     totalCustomers,
     totalPayoffBalance,
-    averageBalance
+    averageBalance,
+    creditQty,
+    creditBalance,
+    dueQty,
+    dueBalance,
+    netBalance
   };
 });
 
