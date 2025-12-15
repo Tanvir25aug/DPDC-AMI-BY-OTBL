@@ -89,6 +89,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/nocs-customer-payoff',
+      name: 'nocs-customer-payoff',
+      component: () => import('@/views/NocsCustomerPayoffView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/customer-billing-details',
       name: 'customer-billing-details',
       component: () => import('@/views/CustomerBillingDetailsView.vue'),
@@ -104,6 +110,12 @@ const router = createRouter({
       path: '/crp-cpc',
       name: 'crp-cpc',
       component: () => import('@/views/CRPCPCView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/bill-stop',
+      name: 'bill-stop',
+      component: () => import('@/views/BillStopView.vue'),
       meta: { requiresAuth: true }
     },
     {
