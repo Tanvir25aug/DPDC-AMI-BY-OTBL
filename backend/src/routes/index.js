@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { getPoolHealth } = require('../config/oracle');
 
 // Import route modules
 const authRoutes = require('./auth.routes');
@@ -12,13 +13,18 @@ const amiOperationalRoutes = require('./ami-operational.routes');
 const crpCpcRoutes = require('./crp-cpc.routes');
 const billStopRoutes = require('./bill-stop.routes');
 
-// Health check endpoint
+// Health check endpoint with Oracle pool status
 router.get('/health', (req, res) => {
+  const oracleHealth = getPoolHealth();
+
   res.json({
     success: true,
     message: 'DPDC AMI API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    database: {
+      oracle: oracleHealth
+    }
   });
 });
 

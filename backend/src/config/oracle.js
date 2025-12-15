@@ -13,12 +13,14 @@ const oracleConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   connectString: process.env.DB_CONNECT_STRING,
-  poolMin: 2,
-  poolMax: 10,
-  poolIncrement: 1,
-  poolTimeout: 60,
-  queueTimeout: 60000,
-  enableStatistics: true
+  poolMin: 5,                    // Increased from 2 to 5 (more idle connections ready)
+  poolMax: 30,                   // Increased from 10 to 30 (handle more concurrent users)
+  poolIncrement: 2,              // Increased from 1 to 2 (grow pool faster)
+  poolTimeout: 120,              // Increased from 60 to 120 seconds (idle connection timeout)
+  queueTimeout: 120000,          // Increased from 60000 to 120000 (2 minutes wait time)
+  enableStatistics: true,
+  stmtCacheSize: 30,             // Cache 30 SQL statements for reuse
+  _enableStats: true             // Enable detailed pool statistics
 };
 
 // Set Oracle client options (only if oracledb is available)
@@ -92,8 +94,14 @@ async function executeQuery(query, params = {}, options = {}) {
 
     const defaultOptions = {
       maxRows: options.maxRows !== undefined ? options.maxRows : 1000,
-      outFormat: oracledb.OUT_FORMAT_OBJECT
+      outFormat: oracledb.OUT_FORMAT_OBJECT,
+      fetchArraySize: 100          // Fetch 100 rows at a time for better performance
     };
+
+    // Add query timeout (60 seconds) to prevent long-running queries from blocking connections
+    if (connection.callTimeout === undefined) {
+      connection.callTimeout = 60000; // 60 seconds timeout for each query
+    }
 
     const result = await connection.execute(
       query,
@@ -142,10 +150,41 @@ function getPoolStats() {
   return null;
 }
 
+/**
+ * Get detailed pool health status
+ */
+function getPoolHealth() {
+  if (!pool) {
+    return {
+      status: 'unavailable',
+      message: 'Pool not initialized'
+    };
+  }
+
+  const stats = pool.getStatistics();
+  const poolAttrs = pool.poolAlias || 'default';
+
+  // Calculate pool usage percentage
+  const usage = (stats.connectionsInUse / oracleConfig.poolMax) * 100;
+
+  return {
+    status: usage < 80 ? 'healthy' : usage < 95 ? 'warning' : 'critical',
+    usage: `${usage.toFixed(1)}%`,
+    connectionsInUse: stats.connectionsInUse,
+    connectionsOpen: stats.connectionsOpen,
+    poolMax: oracleConfig.poolMax,
+    poolMin: oracleConfig.poolMin,
+    queueLength: stats.queueLength || 0,
+    queueTimeout: oracleConfig.queueTimeout,
+    timestamp: new Date().toISOString()
+  };
+}
+
 module.exports = {
   initializeOraclePool,
   getOracleConnection,
   executeQuery,
   closeOraclePool,
-  getPoolStats
+  getPoolStats,
+  getPoolHealth
 };
