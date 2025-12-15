@@ -18,13 +18,12 @@
     "logging": false
   },
   "production": {
-    "use_env_variable": "DATABASE_URL",
+    "username": "dev_user",
+    "password": "admin",
+    "database": "dpdc_ami_dev",
+    "host": "localhost",
+    "port": 5432,
     "dialect": "postgres",
-    "dialectOptions": {
-      "ssl": {
-        "require": true,
-        "rejectUnauthorized": false
-      }
-    }
+    "logging": false
   }
 }
