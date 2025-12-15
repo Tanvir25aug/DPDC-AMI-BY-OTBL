@@ -49,3 +49,11 @@ ecosystem.config.js
 temp/
 tmp/
 *.tmp
+
+# WhatsApp session data
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Windows reserved files
+NUL
+nul

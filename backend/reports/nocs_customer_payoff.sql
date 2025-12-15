@@ -5,7 +5,7 @@
 
 SELECT /*+ PARALLEL(4) INDEX(prem_nocs CI_PREM_CHAR_PK) */
     sp_char.ADHOC_CHAR_VAL AS CUSTOMER_ID,
-    COALESCE(acc.ACCT_NBR, sp_char.ADHOC_CHAR_VAL) AS CUSTOMER_NAME,
+    sp_char.ADHOC_CHAR_VAL AS CUSTOMER_NAME,
     TRIM(prem.ADDRESS1 || ' ' || prem.ADDRESS2 || ' ' || prem.ADDRESS3 || ' ' || prem.ADDRESS4) AS ADDRESS,
     CASE sa.sa_type_cd
         WHEN 'PPD' THEN 'Prepaid'
@@ -38,7 +38,6 @@ WHERE prem_nocs.char_type_cd = 'CM_NOCS'
     AND TRIM(prem_nocs.char_val) = TRIM(:nocs_code)
 GROUP BY
     sp_char.ADHOC_CHAR_VAL,
-    acc.ACCT_NBR,
     prem.ADDRESS1,
     prem.ADDRESS2,
     prem.ADDRESS3,
