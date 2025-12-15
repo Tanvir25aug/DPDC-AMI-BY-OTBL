@@ -10,6 +10,7 @@ const activityRoutes = require('./activity.routes');
 const rcProgressRoutes = require('./rc-progress.routes');
 const amiOperationalRoutes = require('./ami-operational.routes');
 const crpCpcRoutes = require('./crp-cpc.routes');
+const billStopRoutes = require('./bill-stop.routes');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -30,5 +31,6 @@ router.use('/activity', activityRoutes);
 router.use('/rc-progress', rcProgressRoutes);
 router.use('/ami-operational', amiOperationalRoutes);
 router.use('/crp-cpc', crpCpcRoutes);
+router.use('/bill-stop', billStopRoutes);
 
 module.exports = router;

@@ -36,14 +36,14 @@ class TeamsReportsScheduler {
         try {
           await this.runReportCycle();
         } catch (error) {
-          logger.error('[Teams Reports] Error in interval callback:', error);
+          logger.error('[Teams Reports] Error in interval callback:', error.message, { stack: error.stack });
         }
       }, this.intervalMs);
 
       this.isRunning = true;
       logger.info('[Teams Reports] Scheduler started successfully');
     } catch (error) {
-      logger.error('[Teams Reports] Failed to start scheduler:', error);
+      logger.error('[Teams Reports] Failed to start scheduler:', error.message, { stack: error.stack });
       throw error;
     }
   }
@@ -86,7 +86,7 @@ class TeamsReportsScheduler {
       logger.info('========================================');
 
     } catch (error) {
-      logger.error('[Teams Reports] Error in report cycle:', error);
+      logger.error('[Teams Reports] Error in report cycle:', error.message, { stack: error.stack });
     }
   }
 

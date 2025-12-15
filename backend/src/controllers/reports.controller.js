@@ -882,6 +882,53 @@ const getNocsBalanceSummary = async (req, res) => {
   }
 };
 
+/**
+ * Get NOCS Customer Payoff Balance
+ * Returns customer-wise payoff balance for a specific NOCS
+ * Ordered by payoff balance (highest to lowest)
+ * @param {string} nocsCode - NOCS code from route parameter
+ */
+const getNocsCustomerPayoff = async (req, res) => {
+  try {
+    const { nocsCode } = req.params;
+
+    if (!nocsCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'NOCS code is required'
+      });
+    }
+
+    // Trim NOCS code to handle trailing spaces
+    const trimmedNocsCode = nocsCode.trim();
+
+    console.log('[Reports Controller] Fetching customer payoff data for NOCS:', trimmedNocsCode);
+
+    // Execute query with NOCS code parameter
+    const data = await reportsService.executeReport('nocs_customer_payoff', {
+      nocs_code: trimmedNocsCode
+    }, { maxRows: 0 }); // Fetch all customers for this NOCS
+
+    console.log(`[Reports Controller] Retrieved ${data.length} customers for NOCS ${nocsCode}`);
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+      nocsCode,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getNocsCustomerPayoff:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer payoff data',
+      error: error.message
+    });
+  }
+};
+
 // Helper: Format date for Oracle
 function formatDateForOracle(date) {
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -908,5 +955,6 @@ module.exports = {
   getNocsCollectionSummary,
   getCustomerBillingDetails, // Customer billing details
   getCustomerDetails, // NEW: Customer details page
-  getNocsBalanceSummary // NEW: NOCS balance summary (hourly cached)
+  getNocsBalanceSummary, // NEW: NOCS balance summary (hourly cached)
+  getNocsCustomerPayoff // NEW: Customer payoff balance by NOCS
 };

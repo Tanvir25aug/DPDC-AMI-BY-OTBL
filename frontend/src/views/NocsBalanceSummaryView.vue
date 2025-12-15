@@ -18,20 +18,46 @@
         </div>
       </div>
 
-      <!-- Action Buttons -->
+      <!-- Action Buttons & Last Update Info -->
       <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 mb-6 shadow-lg border border-gray-100">
-        <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div class="flex items-center gap-3 text-sm">
-            <div class="bg-blue-50 p-2 rounded-lg">
-              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <!-- Last Update Info -->
+          <div v-if="lastUpdated" class="flex items-start gap-3 text-sm">
+            <div :class="[
+              'p-2 rounded-lg',
+              formattedLastUpdate.isStale ? 'bg-yellow-50' : 'bg-green-50'
+            ]">
+              <svg class="w-5 h-5" :class="formattedLastUpdate.isStale ? 'text-yellow-600' : 'text-green-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-800 flex items-center gap-2">
+                Last Updated
+                <span v-if="formattedLastUpdate.isStale" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                  Stale
+                </span>
+                <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                  Fresh
+                </span>
+              </div>
+              <div class="text-gray-600 font-medium">{{ formattedLastUpdate.timeAgo }}</div>
+              <div class="text-xs text-gray-500">{{ formattedLastUpdate.dateTime }}</div>
+            </div>
+          </div>
+          <div v-else class="flex items-center gap-3 text-sm">
+            <div class="bg-gray-50 p-2 rounded-lg">
+              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <div class="font-semibold text-gray-800">Live Data</div>
-              <div class="text-gray-500">Cached from Oracle database</div>
+              <div class="font-semibold text-gray-800">No Data</div>
+              <div class="text-gray-500">Click refresh to load data</div>
             </div>
           </div>
+
+          <!-- Action Buttons -->
           <div class="flex gap-3">
             <button
               @click="fetchData"
@@ -263,6 +289,9 @@
                     <span v-if="sortColumn === 'NET_BALANCE'" class="text-indigo-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
                   </div>
                 </th>
+                <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-100">
@@ -306,6 +335,19 @@
                       {{ row.NET_BALANCE >= 0 ? '▼' : '▲' }}
                     </span>
                   </div>
+                </td>
+                <td class="px-6 py-5 text-sm text-center">
+                  <button
+                    @click="viewCustomers(row.NOCS_CODE, row.NOCS_NAME)"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    title="View Customers"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    View
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -427,6 +469,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import api from '@/services/api';
 import * as XLSX from 'xlsx';
 import { Bar } from 'vue-chartjs';
@@ -443,11 +486,16 @@ import {
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
 
+// Initialize router
+const router = useRouter();
+
 const data = ref([]);
 const loading = ref(false);
 const error = ref(null);
 const sortColumn = ref('NET_BALANCE');
 const sortDirection = ref('desc');
+const lastUpdated = ref(null);
+const ageMinutes = ref(null);
 
 // Sorted data
 const sortedData = computed(() => {
@@ -622,6 +670,48 @@ const formatNumber = (num) => {
   return Number(num).toLocaleString('en-IN');
 };
 
+// Format last update time
+const formattedLastUpdate = computed(() => {
+  if (!lastUpdated.value) return 'Never';
+
+  const date = new Date(lastUpdated.value);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+
+  // Format the date
+  const dateStr = date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+  const timeStr = date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  // Calculate time ago
+  let timeAgo = '';
+  if (diffMins < 1) {
+    timeAgo = 'Just now';
+  } else if (diffMins < 60) {
+    timeAgo = `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  } else if (diffMins < 1440) {
+    const hours = Math.floor(diffMins / 60);
+    timeAgo = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else {
+    const days = Math.floor(diffMins / 1440);
+    timeAgo = `${days} day${days > 1 ? 's' : ''} ago`;
+  }
+
+  return {
+    dateTime: `${dateStr} at ${timeStr}`,
+    timeAgo: timeAgo,
+    isStale: diffMins > 90 // Data is stale if older than 90 minutes (1.5 hours)
+  };
+});
+
 const fetchData = async () => {
   loading.value = true;
   error.value = null;
@@ -629,13 +719,27 @@ const fetchData = async () => {
   try {
     const response = await api.get('/reports/nocs_balance_summary');
     data.value = response.data.data || [];
+    lastUpdated.value = response.data.lastUpdated || null;
+    ageMinutes.value = response.data.ageMinutes || null;
     console.log('[NOCS Balance] Loaded data:', data.value.length, 'NOCS areas');
+    console.log('[NOCS Balance] Last updated:', lastUpdated.value, '(', ageMinutes.value, 'minutes ago)');
   } catch (err) {
     error.value = err.response?.data?.message || err.message || 'Failed to fetch data';
     console.error('Error fetching NOCS balance summary:', err);
   } finally {
     loading.value = false;
   }
+};
+
+// Navigate to customer payoff balance page
+const viewCustomers = (nocsCode, nocsName) => {
+  router.push({
+    path: '/nocs-customer-payoff',
+    query: {
+      nocs: nocsCode,
+      name: nocsName
+    }
+  });
 };
 
 const exportToExcel = () => {

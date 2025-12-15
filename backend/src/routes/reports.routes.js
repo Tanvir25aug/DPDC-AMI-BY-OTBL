@@ -45,4 +45,7 @@ router.get('/customer_details', reportsController.getCustomerDetails);
 // NOCS Balance Summary (Ultra Fast - Pre-calculated hourly)
 router.get('/nocs_balance_summary', reportsController.getNocsBalanceSummary);
 
+// NOCS Customer Payoff Balance (Customer-wise breakdown by NOCS)
+router.get('/nocs-customer-payoff/:nocsCode', reportsController.getNocsCustomerPayoff);
+
 module.exports = router;
