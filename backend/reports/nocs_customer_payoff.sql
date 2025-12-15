@@ -5,7 +5,7 @@
 
 SELECT /*+ PARALLEL(4) INDEX(prem_nocs CI_PREM_CHAR_PK) */
     sp_char.ADHOC_CHAR_VAL AS CUSTOMER_ID,
-    COALESCE(per.ENTITY_NAME, sp_char.ADHOC_CHAR_VAL) AS CUSTOMER_NAME,
+    COALESCE(acc.ACCT_NBR, sp_char.ADHOC_CHAR_VAL) AS CUSTOMER_NAME,
     TRIM(prem.ADDRESS1 || ' ' || prem.ADDRESS2 || ' ' || prem.ADDRESS3 || ' ' || prem.ADDRESS4) AS ADDRESS,
     CASE sa.sa_type_cd
         WHEN 'PPD' THEN 'Prepaid'
@@ -27,8 +27,6 @@ INNER JOIN ci_sa_sp sa_sp ON sa_sp.sa_id = sa.sa_id
 INNER JOIN ci_sp sp ON sp.sp_id = sa_sp.sp_id
 INNER JOIN ci_sp_char sp_char ON sp_char.sp_id = sp.sp_id
     AND sp_char.char_type_cd = 'CM_LEGCY'
--- Get customer name from person entity
-LEFT JOIN ci_per per ON per.per_id = sp.per_or_bus_flg_per_id
 -- Pre-aggregate financial transactions to improve performance
 LEFT JOIN (
     SELECT sa_id, SUM(TOT_AMT) AS TOT_AMT
@@ -40,7 +38,7 @@ WHERE prem_nocs.char_type_cd = 'CM_NOCS'
     AND TRIM(prem_nocs.char_val) = TRIM(:nocs_code)
 GROUP BY
     sp_char.ADHOC_CHAR_VAL,
-    per.ENTITY_NAME,
+    acc.ACCT_NBR,
     prem.ADDRESS1,
     prem.ADDRESS2,
     prem.ADDRESS3,
