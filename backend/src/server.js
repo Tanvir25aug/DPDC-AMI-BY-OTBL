@@ -131,24 +131,36 @@ async function startServer() {
     nocsBalanceScheduler.startScheduler();
     logger.info('✅ NOCS Balance Scheduler started (runs hourly)');
 
-    // Start Batch Monitoring Scheduler
-    logger.info('========================================');
-    await batchMonitoringScheduler.startScheduler();
-    logger.info('✅ Batch Monitoring Scheduler started (runs every 30 minutes)');
-    logger.info('========================================');
+    // Start Batch Monitoring Scheduler (only in production)
+    if (process.env.NODE_ENV === 'production') {
+      logger.info('========================================');
+      await batchMonitoringScheduler.startScheduler();
+      logger.info('✅ Batch Monitoring Scheduler started (runs every 30 minutes)');
+      logger.info('========================================');
+    } else {
+      logger.info('========================================');
+      logger.info('ℹ️  Batch Monitoring Scheduler disabled in development');
+      logger.info('========================================');
+    }
 
-    // Initialize Teams service and start reports scheduler
-    logger.info('========================================');
-    logger.info('Initializing Microsoft Teams integration...');
-    teamsService.initialize(teamsWebhooks.DEFAULT);
-    logger.info('✅ Teams service initialized');
-    await teamsReportsScheduler.startScheduler();
-    logger.info('✅ NOCS Balance Summary Scheduler started (runs every 60 minutes / 1 hour)');
-    logger.info('========================================');
+    // Initialize Teams service and start reports scheduler (only in production)
+    if (process.env.NODE_ENV === 'production') {
+      logger.info('========================================');
+      logger.info('Initializing Microsoft Teams integration...');
+      teamsService.initialize(teamsWebhooks.DEFAULT);
+      logger.info('✅ Teams service initialized');
+      await teamsReportsScheduler.startScheduler();
+      logger.info('✅ NOCS Balance Summary Scheduler started (runs every 60 minutes / 1 hour)');
+      logger.info('========================================');
+    } else {
+      logger.info('========================================');
+      logger.info('ℹ️  Microsoft Teams reports disabled in development');
+      logger.info('========================================');
+    }
 
-    // Initialize Telegram Bot (only in development)
+    // Initialize Telegram Bot (only in production)
     const enableTelegram = process.env.ENABLE_TELEGRAM === 'true';
-    if (enableTelegram) {
+    if (process.env.NODE_ENV === 'production' && enableTelegram) {
       logger.info('========================================');
       logger.info('Initializing Telegram Bot...');
       telegramBotService.initialize();
@@ -156,7 +168,11 @@ async function startServer() {
       logger.info('========================================');
     } else {
       logger.info('========================================');
-      logger.info('ℹ️  Telegram Bot disabled (set ENABLE_TELEGRAM=true to enable)');
+      if (process.env.NODE_ENV !== 'production') {
+        logger.info('ℹ️  Telegram Bot disabled in development');
+      } else {
+        logger.info('ℹ️  Telegram Bot disabled (set ENABLE_TELEGRAM=true to enable)');
+      }
       logger.info('========================================');
     }
 
@@ -201,11 +217,14 @@ async function startServer() {
           nocsBalanceScheduler.stopScheduler();
           logger.info('NOCS Balance Scheduler stopped');
 
-          batchMonitoringScheduler.stopScheduler();
-          logger.info('Batch Monitoring Scheduler stopped');
+          // Stop production-only schedulers
+          if (process.env.NODE_ENV === 'production') {
+            batchMonitoringScheduler.stopScheduler();
+            logger.info('Batch Monitoring Scheduler stopped');
 
-          teamsReportsScheduler.stopScheduler();
-          logger.info('Teams Reports Scheduler stopped');
+            teamsReportsScheduler.stopScheduler();
+            logger.info('Teams Reports Scheduler stopped');
+          }
 
           // Close database connections
           await sequelize.close();
