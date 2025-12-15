@@ -133,6 +133,7 @@ import {
   TableCellsIcon,
   CurrencyDollarIcon,
   CpuChipIcon,
+  StopCircleIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -207,8 +208,13 @@ const navItems = [
   },
   {
     path: '/crp-cpc',
-    label: 'CRP-CPC',
+    label: 'CPR-CPC',
     icon: UserGroupIcon,
+  },
+  {
+    path: '/bill-stop',
+    label: 'Bill Stop',
+    icon: StopCircleIcon,
   },
   // Payment reports disabled - requires ci_pay tables access
   // {

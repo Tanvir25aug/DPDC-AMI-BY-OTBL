@@ -11,7 +11,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h1 class="text-lg font-bold text-gray-900">CRP-CPC Management</h1>
+              <h1 class="text-lg font-bold text-gray-900">CPR-CPC Management</h1>
             </div>
           </div>
 
@@ -55,15 +55,15 @@
       <div class="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-8 mb-8 shadow-lg">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-3xl font-bold text-white mb-2">CRP Customer Management</h2>
-            <p class="text-blue-100">Manage CRP customers and their associated CPC connections</p>
+            <h2 class="text-3xl font-bold text-white mb-2">CPR Customer Management</h2>
+            <p class="text-blue-100">Manage CPR customers and their associated CPC connections</p>
           </div>
           <div class="flex flex-col gap-2 items-end">
             <div class="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              <span class="text-sm text-white font-medium">{{ totalCount }} CRP Customers</span>
+              <span class="text-sm text-white font-medium">{{ totalCount }} CPR Customers</span>
             </div>
           </div>
         </div>
@@ -73,13 +73,13 @@
       <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
         <div class="flex flex-col md:flex-row gap-4">
           <div class="flex-1">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Search CRP or CPC Customer</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Search CPR or CPC Customer</label>
             <div class="relative">
               <input
                 v-model="searchQuery"
                 @input="handleSearch"
                 type="text"
-                placeholder="Search by CRP Account, Customer ID, or Name..."
+                placeholder="Search by CPR Account, Customer ID, or Name..."
                 class="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +118,7 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CRP Account</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPR Account</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total CPC Connections</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -131,7 +131,7 @@
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span class="ml-3 text-gray-600">Loading CRP data...</span>
+                    <span class="ml-3 text-gray-600">Loading CPR data...</span>
                   </div>
                 </td>
               </tr>
@@ -141,7 +141,7 @@
                     <svg class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
-                    <p>No CRP customers found</p>
+                    <p>No CPR customers found</p>
                   </div>
                 </td>
               </tr>
@@ -225,7 +225,7 @@
           <div class="bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4">
             <div class="flex items-center justify-between">
               <div>
-                <h3 class="text-xl font-bold text-white">CPC Details for CRP {{ selectedCRP?.CRP_ACCOUNT_NO }}</h3>
+                <h3 class="text-xl font-bold text-white">CPC Details for CPR {{ selectedCRP?.CRP_ACCOUNT_NO }}</h3>
                 <p class="text-sm text-blue-100 mt-1">Total CPC Connections: {{ selectedCRP?.TOTAL_CPC_COUNT }}</p>
               </div>
               <button @click="closeModal" class="text-white hover:text-gray-200 transition-colors">
@@ -250,7 +250,7 @@
               <svg class="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
-              <p class="text-gray-500">No CPC connections found for this CRP</p>
+              <p class="text-gray-500">No CPC connections found for this CPR</p>
             </div>
 
             <div v-else class="space-y-4">

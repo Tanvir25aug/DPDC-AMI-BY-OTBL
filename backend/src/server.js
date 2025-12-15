@@ -11,6 +11,7 @@ const { initializeOraclePool, closeOraclePool } = require('./config/oracle');
 const routes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { apiLimiter } = require('./middleware/rateLimiter');
+const { apiProtection } = require('./middleware/apiProtection');
 const nocsBalanceScheduler = require('./services/nocs-balance-scheduler.service');
 const batchMonitoringScheduler = require('./schedulers/batch-monitoring.scheduler');
 const teamsService = require('./services/teams.service');
@@ -24,11 +25,57 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
+// Security middleware - Enhanced protection against iframe embedding and XSS
+app.use(helmet({
+  // Prevent iframe embedding from ANY domain (including same origin)
+  frameguard: {
+    action: 'deny' // Completely blocks iframe embedding
+  },
+  // Content Security Policy - Prevent XSS and data injection
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Vue.js needs unsafe-inline
+      styleSrc: ["'self'", "'unsafe-inline'"], // CSS needs unsafe-inline
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"], // Block all iframes
+      frameAncestors: ["'none'"] // Prevent embedding in iframes (CSP equivalent of X-Frame-Options: DENY)
+    }
+  },
+  // Additional security headers
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true, // Prevent MIME type sniffing
+  xssFilter: true, // Enable XSS filter
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+}));
+
+// CORS configuration - Restrict to specific origins only
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || [];
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+
+    // In production, only allow specific origins
+    if (process.env.NODE_ENV === 'production' && allowedOrigins.length > 0) {
+      if (allowedOrigins.indexOf(origin) === -1) {
+        return callback(new Error('CORS policy: This origin is not allowed'), false);
+      }
+    }
+
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Body parsing middleware
@@ -46,6 +93,9 @@ app.use(passport.initialize());
 
 // Rate limiting
 app.use('/api', apiLimiter);
+
+// API Protection - Detect and block iframe embedding, suspicious requests
+app.use('/api', apiProtection);
 
 // Mount API routes
 app.use('/api', routes);
@@ -96,12 +146,19 @@ async function startServer() {
     logger.info('✅ NOCS Balance Summary Scheduler started (runs every 60 minutes / 1 hour)');
     logger.info('========================================');
 
-    // Initialize Telegram Bot
-    logger.info('========================================');
-    logger.info('Initializing Telegram Bot...');
-    telegramBotService.initialize();
-    logger.info('✅ Telegram Bot initialized and ready at @DPDC_customerInfo_bot');
-    logger.info('========================================');
+    // Initialize Telegram Bot (only in development)
+    const enableTelegram = process.env.ENABLE_TELEGRAM === 'true';
+    if (enableTelegram) {
+      logger.info('========================================');
+      logger.info('Initializing Telegram Bot...');
+      telegramBotService.initialize();
+      logger.info('✅ Telegram Bot initialized and ready at @DPDC_customerInfo_bot');
+      logger.info('========================================');
+    } else {
+      logger.info('========================================');
+      logger.info('ℹ️  Telegram Bot disabled (set ENABLE_TELEGRAM=true to enable)');
+      logger.info('========================================');
+    }
 
     // Start server
     const server = app.listen(PORT, () => {
