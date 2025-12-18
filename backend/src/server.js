@@ -158,21 +158,20 @@ async function startServer() {
       logger.info('========================================');
     }
 
-    // Initialize Telegram Bot (only in production)
+    // Initialize Telegram Bot (if enabled)
     const enableTelegram = process.env.ENABLE_TELEGRAM === 'true';
-    if (process.env.NODE_ENV === 'production' && enableTelegram) {
+    if (enableTelegram) {
       logger.info('========================================');
       logger.info('Initializing Telegram Bot...');
       telegramBotService.initialize();
-      logger.info('✅ Telegram Bot initialized and ready at @DPDC_customerInfo_bot');
+      const botUsername = process.env.NODE_ENV === 'production'
+        ? '@DPDC_AMI_bot'
+        : '@DPDC_AMI_DEV_bot';
+      logger.info(`✅ Telegram Bot initialized and ready at ${botUsername}`);
       logger.info('========================================');
     } else {
       logger.info('========================================');
-      if (process.env.NODE_ENV !== 'production') {
-        logger.info('ℹ️  Telegram Bot disabled in development');
-      } else {
-        logger.info('ℹ️  Telegram Bot disabled (set ENABLE_TELEGRAM=true to enable)');
-      }
+      logger.info('ℹ️  Telegram Bot disabled (set ENABLE_TELEGRAM=true to enable)');
       logger.info('========================================');
     }
 

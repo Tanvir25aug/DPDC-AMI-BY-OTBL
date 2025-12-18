@@ -9,6 +9,7 @@ class TelegramBotService {
   constructor() {
     this.bot = null;
     this.isInitialized = false;
+    this.lastPollingErrorLog = null; // Track last polling error log time
   }
 
   /**
@@ -23,14 +24,42 @@ class TelegramBotService {
         return;
       }
 
-      // Create bot instance
-      this.bot = new TelegramBot(token, { polling: true });
+      // Create bot instance with polling configuration
+      this.bot = new TelegramBot(token, {
+        polling: {
+          interval: 300,  // Check for updates every 300ms
+          autoStart: true,
+          params: {
+            timeout: 10  // Long polling timeout in seconds
+          }
+        }
+      });
+
+      // Handle polling errors gracefully
+      this.bot.on('polling_error', (error) => {
+        // Don't flood logs with connection timeout errors
+        if (error.code === 'EFATAL' || error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+          // Log connection errors only once every 5 minutes
+          const now = Date.now();
+          if (!this.lastPollingErrorLog || now - this.lastPollingErrorLog > 300000) {
+            logger.warn('[Telegram Bot] Polling connection issue (will retry automatically):', {
+              code: error.code,
+              message: error.message?.substring(0, 100)
+            });
+            this.lastPollingErrorLog = now;
+          }
+        } else {
+          // Log other errors normally
+          logger.error('[Telegram Bot] Polling error:', error);
+        }
+      });
 
       // Set up command handlers
       this.setupHandlers();
 
       this.isInitialized = true;
       logger.info('[Telegram Bot] Bot initialized successfully');
+      logger.info('[Telegram Bot] Using polling mode - ensure Telegram servers are accessible');
     } catch (error) {
       logger.error('[Telegram Bot] Failed to initialize:', error);
     }
@@ -179,13 +208,37 @@ I'll provide you with your account details and billing information.`;
 
       logger.info(`[Telegram Bot] Customer ID search result: ${customerData?.length || 0} rows`);
 
-      // If not found, try meter number
+      // If not found, try meter number lookup (quick lookup with customer name)
       if (!customerData || customerData.length === 0) {
-        logger.info(`[Telegram Bot] Trying meter number search...`);
-        customerData = await reportsService.executeReport('customer_search_by_meter', {
+        logger.info(`[Telegram Bot] Trying meter number lookup (lightweight)...`);
+
+        // Use new lightweight meter lookup to get Customer ID and Name quickly
+        const meterLookup = await reportsService.executeReport('meter_to_customer_lookup', {
           meterNumber: searchValue
         });
-        logger.info(`[Telegram Bot] Meter number search result: ${customerData?.length || 0} rows`);
+
+        logger.info(`[Telegram Bot] Meter lookup result: ${meterLookup?.length || 0} rows`);
+
+        if (meterLookup && meterLookup.length > 0) {
+          // Got Customer ID from meter, now fetch full details
+          const custId = meterLookup[0].CUSTOMER_ID;
+          logger.info(`[Telegram Bot] Found customer ${custId} (${meterLookup[0].CUSTOMER_NAME}) via meter lookup, fetching full details...`);
+
+          customerData = await reportsService.executeReport('customer_details_search', {
+            searchValue: custId
+          });
+
+          // Add customer name from meter lookup if not in customer data
+          if (customerData && customerData.length > 0 && !customerData[0].CUSTOMER_NAME) {
+            customerData[0].CUSTOMER_NAME = meterLookup[0].CUSTOMER_NAME;
+          }
+        } else {
+          logger.info(`[Telegram Bot] Meter lookup failed, trying comprehensive meter search...`);
+          customerData = await reportsService.executeReport('customer_search_by_meter', {
+            meterNumber: searchValue
+          });
+          logger.info(`[Telegram Bot] Comprehensive meter search result: ${customerData?.length || 0} rows`);
+        }
       }
 
       if (!customerData || customerData.length === 0) {
@@ -367,6 +420,7 @@ I'll provide you with your account details and billing information.`;
 
 📋 *Customer ID:* ${customer.CUSTOMER_ID || 'N/A'}
 ⚡ *Meter Number:* ${customer.METER_NO || 'N/A'}
+👤 *Customer Name:* ${customer.CUSTOMER_NAME || 'N/A'}
 📍 *NOCS:* ${customer.NOCS_NAME || 'N/A'}
 📞 *Phone:* ${customer.PHONE_NO || 'N/A'}
 🏠 *Address:* ${customer.ADDRESS || 'N/A'}
@@ -444,6 +498,7 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
 
 📋 *Customer ID:* ${customer.CUSTOMER_ID || 'N/A'}
 ⚡ *Meter:* ${customer.METER_NO || 'N/A'}
+👤 *Customer Name:* ${customer.CUSTOMER_NAME || 'N/A'}
 
 ───────────────────────
 `.trim();
@@ -552,6 +607,7 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
 
 📋 *Customer ID:* ${customer.CUSTOMER_ID || 'N/A'}
 ⚡ *Meter:* ${customer.METER_NO || 'N/A'}
+👤 *Customer Name:* ${customer.CUSTOMER_NAME || 'N/A'}
 
 ───────────────────────
 `.trim();

@@ -34,6 +34,7 @@ last_bill AS (
 )
 SELECT
     cb.CUSTOMER_ID,
+    per_name.entity_name AS CUSTOMER_NAME,
     cb.SA_ID,
     cb.CONNECTION_DATE,
     cb.ACCOUNT_STATUS,
@@ -50,6 +51,7 @@ LEFT JOIN ci_prem p1 ON p1.prem_id = acc.mailing_prem_id
 LEFT JOIN ci_prem_char pc ON pc.prem_id = p1.prem_id AND pc.char_type_cd = 'CM_NOCS'
 LEFT JOIN ci_char_val_l vl ON vl.char_val = pc.char_val
 LEFT JOIN ci_acct_per ap ON ap.acct_id = cb.ACCT_ID AND ap.main_cust_sw = 'Y'
+LEFT JOIN ci_per_name per_name ON per_name.per_id = ap.per_id AND per_name.prim_name_sw = 'Y'
 LEFT JOIN c1_per_contdet mob ON mob.per_id = ap.per_id
     AND mob.comm_rte_type_cd = 'CELLPHONE'
     AND mob.cnd_primary_flg = 'C1YS'
