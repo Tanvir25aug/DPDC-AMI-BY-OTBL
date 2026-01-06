@@ -889,6 +889,7 @@ const getNocsBalanceSummary = async (req, res) => {
  * @param {string} nocsCode - NOCS code from route parameter
  */
 const getNocsCustomerPayoff = async (req, res) => {
+  const startTime = Date.now();
   try {
     const { nocsCode } = req.params;
 
@@ -904,27 +905,40 @@ const getNocsCustomerPayoff = async (req, res) => {
 
     console.log('[Reports Controller] Fetching customer payoff data for NOCS:', trimmedNocsCode);
 
-    // Execute query with NOCS code parameter
+    // Execute query with NOCS code parameter (maxRows: 0 = fetch ALL customers)
     const data = await reportsService.executeReport('nocs_customer_payoff', {
       nocs_code: trimmedNocsCode
     }, { maxRows: 0 }); // Fetch all customers for this NOCS
 
-    console.log(`[Reports Controller] Retrieved ${data.length} customers for NOCS ${nocsCode}`);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Reports Controller] Retrieved ${data.length} customers for NOCS ${trimmedNocsCode} in ${duration}s`);
+
+    // Calculate summary statistics
+    const withNames = data.filter(r => r.CUSTOMER_NAME && r.CUSTOMER_NAME !== r.CUSTOMER_ID).length;
+    console.log(`[Reports Controller] Customers with names: ${withNames} (${data.length > 0 ? ((withNames / data.length) * 100).toFixed(1) : 0}%)`);
 
     res.json({
       success: true,
       data,
       count: data.length,
-      nocsCode,
+      nocsCode: trimmedNocsCode,
+      duration: `${duration}s`,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('[Reports Controller] Error in getNocsCustomerPayoff:', error);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.error(`[Reports Controller] Error in getNocsCustomerPayoff after ${duration}s:`, error);
+    console.error('[Reports Controller] Error details:', {
+      message: error.message,
+      code: error.code,
+      offset: error.offset
+    });
 
     res.status(500).json({
       success: false,
       message: 'Failed to fetch customer payoff data',
-      error: error.message
+      error: error.message,
+      duration: `${duration}s`
     });
   }
 };

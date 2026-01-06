@@ -95,12 +95,12 @@ async function executeQuery(query, params = {}, options = {}) {
     const defaultOptions = {
       maxRows: options.maxRows !== undefined ? options.maxRows : 1000,
       outFormat: oracledb.OUT_FORMAT_OBJECT,
-      fetchArraySize: 100          // Fetch 100 rows at a time for better performance
+      fetchArraySize: options.maxRows === 0 ? 500 : 100  // Larger fetch size when getting all rows
     };
 
-    // Add query timeout (60 seconds) to prevent long-running queries from blocking connections
+    // Add query timeout - longer timeout for queries fetching all rows
     if (connection.callTimeout === undefined) {
-      connection.callTimeout = 60000; // 60 seconds timeout for each query
+      connection.callTimeout = options.maxRows === 0 ? 180000 : 60000; // 3 min for all rows, 1 min otherwise
     }
 
     const result = await connection.execute(

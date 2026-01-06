@@ -32,8 +32,8 @@
 
       <!-- Summary Cards -->
       <div v-if="!loading && data.length" class="space-y-6 mb-6">
-        <!-- Top Row: Total Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Top Row: Total Customers -->
+        <div class="grid grid-cols-1 gap-6">
           <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
             <div class="flex items-center justify-between">
               <div>
@@ -43,34 +43,6 @@
               <div class="bg-white bg-opacity-20 rounded-full p-3">
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-emerald-100 text-sm font-medium uppercase tracking-wider">Total Payoff Balance</p>
-                <p class="text-3xl font-bold mt-2">{{ formatCurrency(summary.totalPayoffBalance) }}</p>
-              </div>
-              <div class="bg-white bg-opacity-20 rounded-full p-3">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-purple-100 text-sm font-medium uppercase tracking-wider">Average Balance</p>
-                <p class="text-3xl font-bold mt-2">{{ formatCurrency(summary.averageBalance) }}</p>
-              </div>
-              <div class="bg-white bg-opacity-20 rounded-full p-3">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
             </div>
@@ -218,9 +190,9 @@
                 <td class="px-6 py-4 whitespace-nowrap text-right">
                   <span
                     class="text-sm font-bold"
-                    :class="customer.PAYOFF_BALANCE >= 0 ? 'text-green-600' : 'text-red-600'"
+                    :class="customer.PAYOFF_BALANCE <= 0 ? 'text-green-600' : 'text-red-600'"
                   >
-                    {{ formatCurrency(customer.PAYOFF_BALANCE) }}
+                    {{ formatCurrency(customer.PAYOFF_BALANCE * -1) }}
                   </span>
                 </td>
               </tr>
@@ -315,7 +287,8 @@ const summary = computed(() => {
   let dueBalance = 0;
 
   data.value.forEach(customer => {
-    const balance = parseFloat(customer.PAYOFF_BALANCE) || 0;
+    // Reverse the sign: DB balance is opposite of actual balance
+    const balance = (parseFloat(customer.PAYOFF_BALANCE) || 0) * -1;
 
     if (balance > 0) {
       // Positive balance = Credit (customer has advance payment)
@@ -398,7 +371,7 @@ const exportToExcel = () => {
     'Customer Name': customer.CUSTOMER_NAME || 'N/A',
     'Address': customer.ADDRESS || 'N/A',
     'Customer Type': customer.CUSTOMER_TYPE || 'Unknown',
-    'Payoff Balance': parseFloat(customer.PAYOFF_BALANCE) || 0
+    'Payoff Balance': (parseFloat(customer.PAYOFF_BALANCE) || 0) * -1
   }));
 
   const ws = XLSX.utils.json_to_sheet(exportData);
