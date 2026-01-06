@@ -201,26 +201,55 @@
         </div>
 
         <!-- Pagination -->
-        <div v-if="filteredData.length > pageSize" class="bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-700">
-              Showing {{ ((currentPage - 1) * pageSize) + 1 }} to {{ Math.min(currentPage * pageSize, filteredData.length) }} of {{ filteredData.length }} customers
+        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+          <div class="flex flex-col gap-4">
+            <!-- Current page info -->
+            <div v-if="filteredData.length > pageSize" class="flex items-center justify-between">
+              <div class="text-sm text-gray-700">
+                Showing {{ ((currentPage - 1) * pageSize) + 1 }} to {{ Math.min(currentPage * pageSize, filteredData.length) }} of {{ filteredData.length }} customers
+                <span v-if="data.length < totalCustomers" class="text-gray-500">
+                  ({{ data.length }} loaded / {{ totalCustomers.toLocaleString() }} total)
+                </span>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  @click="currentPage--"
+                  :disabled="currentPage === 1"
+                  class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <button
+                  @click="currentPage++"
+                  :disabled="currentPage >= totalPages"
+                  class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
             </div>
-            <div class="flex gap-2">
+
+            <!-- Load More button (when more data available from server) -->
+            <div v-if="hasMoreData && !loading" class="flex justify-center">
               <button
-                @click="currentPage--"
-                :disabled="currentPage === 1"
-                class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                @click="loadMore"
+                :disabled="loadingMore"
+                class="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
               >
-                Previous
+                <svg v-if="loadingMore" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m0 0l-4-4m4 4l4-4" />
+                </svg>
+                {{ loadingMore ? 'Loading...' : `Load More Customers (${(totalCustomers - data.length).toLocaleString()} remaining)` }}
               </button>
-              <button
-                @click="currentPage++"
-                :disabled="currentPage >= totalPages"
-                class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
+            </div>
+
+            <!-- All data loaded message -->
+            <div v-if="!hasMoreData && data.length > 0" class="text-center text-sm text-gray-600">
+              All {{ totalCustomers.toLocaleString() }} customers loaded
             </div>
           </div>
         </div>
@@ -245,9 +274,16 @@ const nocsName = ref(route.query.name || '');
 // Data management
 const data = ref([]);
 const loading = ref(false);
+const loadingMore = ref(false);
 const error = ref(null);
 
-// Search and pagination
+// API Pagination (backend)
+const currentApiPage = ref(1);
+const apiPageSize = ref(500); // Load 500 at a time from backend
+const totalCustomers = ref(0);
+const hasMoreData = ref(true);
+
+// Search and UI pagination
 const searchQuery = ref('');
 const currentPage = ref(1);
 const pageSize = ref(50);
@@ -277,66 +313,87 @@ const totalPages = computed(() => {
   return Math.ceil(filteredData.value.length / pageSize.value);
 });
 
-// Computed: Summary statistics with credit/due breakdown
-const summary = computed(() => {
-  const totalCustomers = data.value.length;
-
-  let creditQty = 0;
-  let creditBalance = 0;
-  let dueQty = 0;
-  let dueBalance = 0;
-
-  data.value.forEach(customer => {
-    // Reverse the sign: DB balance is opposite of actual balance
-    const balance = (parseFloat(customer.PAYOFF_BALANCE) || 0) * -1;
-
-    if (balance > 0) {
-      // Positive balance = Credit (customer has advance payment)
-      creditQty++;
-      creditBalance += balance;
-    } else if (balance < 0) {
-      // Negative balance = Due (customer owes money)
-      dueQty++;
-      dueBalance += balance;
-    }
-  });
-
-  const totalPayoffBalance = creditBalance + dueBalance;
-  const averageBalance = totalCustomers > 0 ? totalPayoffBalance / totalCustomers : 0;
-  const netBalance = creditBalance + dueBalance;
-
-  return {
-    totalCustomers,
-    totalPayoffBalance,
-    averageBalance,
-    creditQty,
-    creditBalance,
-    dueQty,
-    dueBalance,
-    netBalance
-  };
+// Summary data from API
+const summaryData = ref({
+  totalCustomers: 0,
+  creditQty: 0,
+  creditBalance: 0,
+  dueQty: 0,
+  dueBalance: 0,
+  netBalance: 0
 });
 
-// Fetch customer data
-const fetchData = async () => {
+// Computed: Summary statistics (from API)
+const summary = computed(() => summaryData.value);
+
+// Fetch summary statistics (fast, separate API call)
+const fetchSummary = async () => {
+  try {
+    const response = await api.get(`/reports/nocs-customer-payoff/${nocsCode.value}/summary`);
+    if (response.data.success) {
+      summaryData.value = response.data.summary;
+      totalCustomers.value = response.data.summary.totalCustomers;
+    }
+  } catch (err) {
+    console.error('Error fetching summary:', err);
+    // Don't show error for summary - it's not critical
+  }
+};
+
+// Fetch paginated customer data
+const fetchData = async (pageNum = 1) => {
   if (!nocsCode.value) {
     error.value = 'NOCS code is required';
     return;
   }
 
-  loading.value = true;
+  if (pageNum === 1) {
+    loading.value = true;
+    data.value = [];
+    currentApiPage.value = 1;
+    hasMoreData.value = true;
+  } else {
+    loadingMore.value = true;
+  }
+
   error.value = null;
 
   try {
-    const response = await api.get(`/reports/nocs-customer-payoff/${nocsCode.value}`);
-    data.value = response.data.data || [];
+    const response = await api.get(`/reports/nocs-customer-payoff/${nocsCode.value}/paginated`, {
+      params: {
+        page: pageNum,
+        limit: apiPageSize.value
+      }
+    });
+
+    if (response.data.success) {
+      const newData = response.data.data || [];
+
+      if (pageNum === 1) {
+        data.value = newData;
+      } else {
+        data.value = [...data.value, ...newData];
+      }
+
+      hasMoreData.value = response.data.pagination.hasMore;
+      currentApiPage.value = pageNum;
+
+      console.log(`Loaded page ${pageNum}: ${newData.length} customers (Total: ${data.value.length}/${response.data.pagination.totalCount})`);
+    }
   } catch (err) {
     console.error('Error fetching customer payoff data:', err);
     console.error('Error response:', err.response?.data);
     error.value = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to load customer data';
   } finally {
     loading.value = false;
+    loadingMore.value = false;
   }
+};
+
+// Load more data (for infinite scroll)
+const loadMore = async () => {
+  if (!hasMoreData.value || loadingMore.value) return;
+  await fetchData(currentApiPage.value + 1);
 };
 
 // Format currency
@@ -389,7 +446,8 @@ const goBack = () => {
 
 // Fetch data on mount
 onMounted(() => {
-  fetchData();
+  fetchSummary(); // Fetch summary first (fast)
+  fetchData(1);   // Then fetch first page of customer data
 });
 </script>
 

@@ -46,6 +46,8 @@ router.get('/customer_details', reportsController.getCustomerDetails);
 router.get('/nocs_balance_summary', reportsController.getNocsBalanceSummary);
 
 // NOCS Customer Payoff Balance (Customer-wise breakdown by NOCS)
-router.get('/nocs-customer-payoff/:nocsCode', reportsController.getNocsCustomerPayoff);
+router.get('/nocs-customer-payoff/:nocsCode/paginated', reportsController.getNocsCustomerPayoffPaginated);
+router.get('/nocs-customer-payoff/:nocsCode/summary', reportsController.getNocsCustomerPayoffSummary);
+router.get('/nocs-customer-payoff/:nocsCode', reportsController.getNocsCustomerPayoff); // DEPRECATED: Use paginated version
 
 module.exports = router;

@@ -888,6 +888,144 @@ const getNocsBalanceSummary = async (req, res) => {
  * Ordered by payoff balance (highest to lowest)
  * @param {string} nocsCode - NOCS code from route parameter
  */
+/**
+ * Get NOCS Customer Payoff - PAGINATED (prevents timeout for large NOCS)
+ * @param {string} nocsCode - NOCS code from route parameter
+ * @param {number} page - Page number (default: 1)
+ * @param {number} limit - Items per page (default: 500, max: 1000)
+ */
+const getNocsCustomerPayoffPaginated = async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { nocsCode } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 500, 1000);
+    const offset = (page - 1) * limit;
+
+    if (!nocsCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'NOCS code is required'
+      });
+    }
+
+    const trimmedNocsCode = nocsCode.trim();
+
+    console.log(`[Reports Controller] Fetching customer payoff data (page ${page}, limit ${limit}) for NOCS: ${trimmedNocsCode}`);
+
+    // Get total count (fast query)
+    const countResult = await reportsService.executeReport('nocs_customer_payoff_count', {
+      nocs_code: trimmedNocsCode
+    });
+    const totalCount = countResult[0]?.TOTAL_COUNT || 0;
+
+    // Get paginated data
+    const data = await reportsService.executeReport('nocs_customer_payoff_paginated', {
+      nocs_code: trimmedNocsCode,
+      offset: offset,
+      limit: limit
+    });
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    console.log(`[Reports Controller] Retrieved page ${page}/${totalPages} (${data.length} customers) for NOCS ${trimmedNocsCode} in ${duration}s`);
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasMore: page < totalPages
+      },
+      nocsCode: trimmedNocsCode,
+      duration: `${duration}s`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.error(`[Reports Controller] Error in getNocsCustomerPayoffPaginated after ${duration}s:`, error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer payoff data',
+      error: error.message,
+      duration: `${duration}s`
+    });
+  }
+};
+
+/**
+ * Get NOCS Customer Payoff Summary (fast aggregated stats only)
+ * @param {string} nocsCode - NOCS code from route parameter
+ */
+const getNocsCustomerPayoffSummary = async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { nocsCode } = req.params;
+
+    if (!nocsCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'NOCS code is required'
+      });
+    }
+
+    const trimmedNocsCode = nocsCode.trim();
+
+    console.log('[Reports Controller] Fetching customer payoff summary for NOCS:', trimmedNocsCode);
+
+    // Get summary statistics (fast query - no detail data)
+    const result = await reportsService.executeReport('nocs_customer_payoff_summary', {
+      nocs_code: trimmedNocsCode
+    });
+
+    const summary = result[0] || {
+      TOTAL_CUSTOMERS: 0,
+      CREDIT_QTY: 0,
+      CREDIT_BALANCE: 0,
+      DUE_QTY: 0,
+      DUE_BALANCE: 0,
+      NET_BALANCE: 0
+    };
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Reports Controller] Retrieved summary for ${summary.TOTAL_CUSTOMERS} customers for NOCS ${trimmedNocsCode} in ${duration}s`);
+
+    res.json({
+      success: true,
+      summary: {
+        totalCustomers: summary.TOTAL_CUSTOMERS,
+        creditQty: summary.CREDIT_QTY,
+        creditBalance: summary.CREDIT_BALANCE,
+        dueQty: summary.DUE_QTY,
+        dueBalance: summary.DUE_BALANCE,
+        netBalance: summary.NET_BALANCE
+      },
+      nocsCode: trimmedNocsCode,
+      duration: `${duration}s`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.error(`[Reports Controller] Error in getNocsCustomerPayoffSummary after ${duration}s:`, error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer payoff summary',
+      error: error.message,
+      duration: `${duration}s`
+    });
+  }
+};
+
+/**
+ * Get NOCS Customer Payoff - DEPRECATED (Use paginated version for large NOCS)
+ * @deprecated Use getNocsCustomerPayoffPaginated instead
+ */
 const getNocsCustomerPayoff = async (req, res) => {
   const startTime = Date.now();
   try {
@@ -970,5 +1108,7 @@ module.exports = {
   getCustomerBillingDetails, // Customer billing details
   getCustomerDetails, // NEW: Customer details page
   getNocsBalanceSummary, // NEW: NOCS balance summary (hourly cached)
-  getNocsCustomerPayoff // NEW: Customer payoff balance by NOCS
+  getNocsCustomerPayoff, // DEPRECATED: Customer payoff balance by NOCS (use paginated version)
+  getNocsCustomerPayoffPaginated, // NEW: Customer payoff balance by NOCS (paginated)
+  getNocsCustomerPayoffSummary // NEW: Customer payoff summary statistics only
 };
