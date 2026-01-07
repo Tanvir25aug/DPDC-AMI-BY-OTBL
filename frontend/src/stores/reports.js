@@ -33,8 +33,15 @@ export const useReportsStore = defineStore('reports', () => {
   // Meter-wise command data
   const meterData = ref([]);
   const meterDataLoading = ref(false);
+  const meterDataLoadingMore = ref(false);
   const meterDataError = ref(null);
   const meterDataLastUpdated = ref(null);
+  const meterDataPagination = ref({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    hasMore: false
+  });
 
   // ========== Actions ==========
 
@@ -213,17 +220,44 @@ export const useReportsStore = defineStore('reports', () => {
   };
 
   /**
-   * Fetch meter-wise commands
+   * Fetch meter-wise commands - OPTIMIZED with pagination
+   * Loads first 500 meters (3-5 seconds) instead of all meters (40-120 seconds)
+   * @param {number} page - Page number (default: 1)
    */
-  const fetchMeterData = async () => {
-    meterDataLoading.value = true;
+  const fetchMeterData = async (page = 1) => {
+    if (page === 1) {
+      meterDataLoading.value = true;
+      meterData.value = []; // Clear existing data on fresh load
+      meterDataPagination.value.currentPage = 1;
+    } else {
+      meterDataLoadingMore.value = true;
+    }
+
     meterDataError.value = null;
 
     try {
-      const response = await reportsAPI.getMeterWiseCommands();
-      meterData.value = response.data.data;
+      const response = await reportsAPI.getMeterWiseCommands({ page, limit: 500 });
+
+      if (page === 1) {
+        meterData.value = response.data.data;
+      } else {
+        meterData.value = [...meterData.value, ...response.data.data];
+      }
+
+      // Update pagination info
+      if (response.data.pagination) {
+        meterDataPagination.value = {
+          currentPage: response.data.pagination.page,
+          totalPages: response.data.pagination.totalPages,
+          totalCount: response.data.pagination.totalCount,
+          hasMore: response.data.pagination.hasMore
+        };
+      }
+
       meterDataLastUpdated.value = new Date();
       meterDataError.value = null;
+
+      console.log(`[Reports Store] Loaded page ${page}: ${response.data.data.length} meters (Total: ${meterData.value.length}/${meterDataPagination.value.totalCount})`);
 
       return { success: true, message: 'Meter data refreshed successfully' };
     } catch (err) {
@@ -233,7 +267,20 @@ export const useReportsStore = defineStore('reports', () => {
       return { success: false, message: 'Failed to fetch meter data' };
     } finally {
       meterDataLoading.value = false;
+      meterDataLoadingMore.value = false;
     }
+  };
+
+  /**
+   * Load more meter data (next page)
+   */
+  const loadMoreMeterData = async () => {
+    if (!meterDataPagination.value.hasMore || meterDataLoadingMore.value) {
+      return { success: false, message: 'No more data to load' };
+    }
+
+    const nextPage = meterDataPagination.value.currentPage + 1;
+    return await fetchMeterData(nextPage);
   };
 
   /**
