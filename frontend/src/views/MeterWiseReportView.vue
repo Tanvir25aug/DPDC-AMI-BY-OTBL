@@ -105,10 +105,7 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-gray-600 font-medium mb-1">Total Records</p>
-              <p class="text-3xl font-bold text-purple-600">{{ meterDataPagination.totalCount || meterData.length }}</p>
-              <p v-if="meterDataPagination.totalCount > meterData.length" class="text-xs text-gray-500 mt-1">
-                Loaded: {{ meterData.length }}
-              </p>
+              <p class="text-3xl font-bold text-purple-600">{{ meterData.length }}</p>
             </div>
             <div class="bg-purple-100 p-3 rounded-xl">
               <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,45 +406,6 @@
               </button>
             </div>
           </div>
-
-          <!-- Load More Button -->
-          <div v-if="meterDataPagination.hasMore" class="mt-6 flex flex-col items-center border-t border-gray-200 pt-6">
-            <div class="text-center mb-4">
-              <p class="text-sm text-gray-600 mb-1">
-                Loaded <span class="font-semibold text-purple-600">{{ meterData.length }}</span> of
-                <span class="font-semibold text-purple-600">{{ meterDataPagination.totalCount }}</span> total meters
-              </p>
-              <p class="text-xs text-gray-500">
-                {{ meterDataPagination.totalCount - meterData.length }} more meters available
-              </p>
-            </div>
-            <button
-              @click="loadMoreData"
-              :disabled="meterDataLoadingMore"
-              class="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-            >
-              <svg v-if="!meterDataLoadingMore" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-              <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {{ meterDataLoadingMore ? 'Loading More...' : 'Load More Meters (500 more)' }}
-            </button>
-          </div>
-
-          <!-- All Data Loaded Message -->
-          <div v-else-if="meterData.length > 0 && meterDataPagination.totalCount > 0" class="mt-6 text-center border-t border-gray-200 pt-6">
-            <div class="inline-flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg">
-              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-              </svg>
-              <span class="text-sm font-medium text-green-700">
-                All {{ meterDataPagination.totalCount }} meters loaded
-              </span>
-            </div>
-          </div>
         </div>
       </app-card>
     </div>
@@ -480,15 +438,8 @@ const itemsPerPage = 25;
 // Computed from store
 const meterData = computed(() => reportsStore.meterData || []);
 const meterDataLoading = computed(() => reportsStore.meterDataLoading || false);
-const meterDataLoadingMore = computed(() => reportsStore.meterDataLoadingMore || false);
 const meterDataError = computed(() => reportsStore.meterDataError || null);
 const meterDataLastUpdated = computed(() => reportsStore.meterDataLastUpdated);
-const meterDataPagination = computed(() => reportsStore.meterDataPagination || {
-  currentPage: 1,
-  totalPages: 1,
-  totalCount: 0,
-  hasMore: false
-});
 
 // Table headers
 const tableHeaders = [
@@ -586,13 +537,6 @@ const visiblePages = computed(() => {
 const fetchData = async () => {
   await reportsStore.fetchMeterData();
   currentPage.value = 1;
-};
-
-const loadMoreData = async () => {
-  const result = await reportsStore.loadMoreMeterData();
-  if (!result.success) {
-    console.log('[MeterWise] No more data to load');
-  }
 };
 
 const clearAllFilters = () => {

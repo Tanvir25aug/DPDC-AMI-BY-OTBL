@@ -220,44 +220,22 @@ export const useReportsStore = defineStore('reports', () => {
   };
 
   /**
-   * Fetch meter-wise commands - OPTIMIZED with pagination
-   * Loads first 500 meters (3-5 seconds) instead of all meters (40-120 seconds)
-   * @param {number} page - Page number (default: 1)
+   * Fetch meter-wise commands - ALL METERS at once
+   * OPTIMIZED: Uses improved SQL query with parallel execution
    */
-  const fetchMeterData = async (page = 1) => {
-    if (page === 1) {
-      meterDataLoading.value = true;
-      meterData.value = []; // Clear existing data on fresh load
-      meterDataPagination.value.currentPage = 1;
-    } else {
-      meterDataLoadingMore.value = true;
-    }
-
+  const fetchMeterData = async () => {
+    meterDataLoading.value = true;
     meterDataError.value = null;
 
     try {
-      const response = await reportsAPI.getMeterWiseCommands({ page, limit: 500 });
+      console.log('[Reports Store] Fetching all meter data...');
+      const response = await reportsAPI.getMeterWiseCommands();
 
-      if (page === 1) {
-        meterData.value = response.data.data;
-      } else {
-        meterData.value = [...meterData.value, ...response.data.data];
-      }
-
-      // Update pagination info
-      if (response.data.pagination) {
-        meterDataPagination.value = {
-          currentPage: response.data.pagination.page,
-          totalPages: response.data.pagination.totalPages,
-          totalCount: response.data.pagination.totalCount,
-          hasMore: response.data.pagination.hasMore
-        };
-      }
-
+      meterData.value = response.data.data;
       meterDataLastUpdated.value = new Date();
       meterDataError.value = null;
 
-      console.log(`[Reports Store] Loaded page ${page}: ${response.data.data.length} meters (Total: ${meterData.value.length}/${meterDataPagination.value.totalCount})`);
+      console.log(`[Reports Store] Loaded ${meterData.value.length} meters in ${response.data.duration}`);
 
       return { success: true, message: 'Meter data refreshed successfully' };
     } catch (err) {
@@ -267,20 +245,7 @@ export const useReportsStore = defineStore('reports', () => {
       return { success: false, message: 'Failed to fetch meter data' };
     } finally {
       meterDataLoading.value = false;
-      meterDataLoadingMore.value = false;
     }
-  };
-
-  /**
-   * Load more meter data (next page)
-   */
-  const loadMoreMeterData = async () => {
-    if (!meterDataPagination.value.hasMore || meterDataLoadingMore.value) {
-      return { success: false, message: 'No more data to load' };
-    }
-
-    const nextPage = meterDataPagination.value.currentPage + 1;
-    return await fetchMeterData(nextPage);
   };
 
   /**
