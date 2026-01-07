@@ -17,7 +17,7 @@ const oracleConfig = {
   poolMax: 30,                   // Increased from 10 to 30 (handle more concurrent users)
   poolIncrement: 2,              // Increased from 1 to 2 (grow pool faster)
   poolTimeout: 120,              // Increased from 60 to 120 seconds (idle connection timeout)
-  queueTimeout: 120000,          // Increased from 60000 to 120000 (2 minutes wait time)
+  queueTimeout: 300000,          // Increased to 300000 (5 minutes wait time for connection)
   enableStatistics: true,
   stmtCacheSize: 30,             // Cache 30 SQL statements for reuse
   _enableStats: true             // Enable detailed pool statistics
@@ -98,9 +98,9 @@ async function executeQuery(query, params = {}, options = {}) {
       fetchArraySize: options.maxRows === 0 ? 500 : 100  // Larger fetch size when getting all rows
     };
 
-    // Add query timeout - longer timeout for queries fetching all rows
+    // Add query timeout - 5 minutes for long-running queries
     if (connection.callTimeout === undefined) {
-      connection.callTimeout = options.maxRows === 0 ? 180000 : 60000; // 3 min for all rows, 1 min otherwise
+      connection.callTimeout = options.maxRows === 0 ? 300000 : 60000; // 5 min for all rows, 1 min otherwise
     }
 
     const result = await connection.execute(
