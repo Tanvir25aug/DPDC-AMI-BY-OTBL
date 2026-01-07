@@ -25,15 +25,18 @@ SELECT /*+ PARALLEL(4) */
     SUM(nocs_balances.total_balance) AS NET_BALANCE
 FROM (
     -- Pre-aggregate: Calculate balance per account with NOCS info
+    -- FIXED: Now matches nocs_customer_payoff logic - ACTIVE PREPAID accounts only
     SELECT /*+ PARALLEL(a,4) PARALLEL(b,4) PARALLEL(j,4) PARALLEL(pc,4) PARALLEL(vl,4) */
         a.acct_id,
         vl.descr AS NOCS_NAME,
         vl.char_val AS NOCS_CODE,
         SUM(COALESCE(j.TOT_AMT, 0)) AS total_balance
     FROM ci_acct a
-    -- Get ANY service agreement (LEFT JOIN to include all accounts)
-    LEFT JOIN ci_sa b ON a.acct_id = b.acct_id
-    -- Get financial transactions (LEFT JOIN to include accounts with no transactions)
+    -- FIXED: INNER JOIN for active prepaid accounts only (was LEFT JOIN)
+    INNER JOIN ci_sa b ON a.acct_id = b.acct_id
+        AND b.sa_status_flg = '20'  -- ACTIVE accounts only
+        AND b.sa_type_cd = 'PPD'    -- PREPAID accounts only
+    -- Get financial transactions (LEFT JOIN to include accounts with zero balance)
     LEFT JOIN ci_ft j ON j.sa_id = b.sa_id
         AND j.freeze_sw = 'Y'
     -- Get NOCS code from premise (INNER JOIN - account must have NOCS)
