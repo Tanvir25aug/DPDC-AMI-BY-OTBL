@@ -30,26 +30,37 @@ const getRCDCAnalyticsSummary = async (req, res) => {
 };
 
 /**
- * Get meter-wise commands (DEPRECATED - Use getMeterWiseCommandsPaginated instead)
+ * Get meter-wise commands - ALL METERS (no limit)
  * Returns detailed list of meter commands for today
+ * UPDATED: Now fetches ALL meters (was limited to 1000)
  */
 const getMeterWiseCommands = async (req, res) => {
+  const startTime = Date.now();
   try {
-    const data = await reportsService.executeReport('meter_wise_commands');
+    console.log('[Reports Controller] Fetching meter-wise commands (ALL meters)...');
+
+    // Fetch ALL meters with maxRows: 0 (no limit)
+    const data = await reportsService.executeReport('meter_wise_commands', {}, { maxRows: 0 });
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Reports Controller] Retrieved ${data.length} meters in ${duration}s`);
 
     res.json({
       success: true,
       data,
       count: data.length,
+      duration: `${duration}s`,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('[Reports Controller] Error in getMeterWiseCommands:', error);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.error(`[Reports Controller] Error in getMeterWiseCommands after ${duration}s:`, error);
 
     res.status(500).json({
       success: false,
       message: 'Failed to fetch meter-wise commands',
-      error: error.message
+      error: error.message,
+      duration: `${duration}s`
     });
   }
 };
@@ -128,10 +139,12 @@ const getMeterWiseCommandsPaginated = async (req, res) => {
 };
 
 /**
- * Get meter-wise commands by NOCS
+ * Get meter-wise commands by NOCS - ALL METERS (no limit)
  * Returns detailed list of meter commands for a specific NOCS location
+ * UPDATED: Now fetches ALL meters for the NOCS (was limited to 1000)
  */
 const getMeterWiseCommandsByNocs = async (req, res) => {
+  const startTime = Date.now();
   try {
     const { nocsName } = req.query;
 
@@ -142,24 +155,33 @@ const getMeterWiseCommandsByNocs = async (req, res) => {
       });
     }
 
+    console.log(`[Reports Controller] Fetching meter-wise commands for NOCS: ${nocsName} (ALL meters)...`);
+
+    // Fetch ALL meters for this NOCS with maxRows: 0 (no limit)
     const data = await reportsService.executeReport('meter_wise_commands_by_nocs', {
       nocsName: nocsName
-    });
+    }, { maxRows: 0 });
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Reports Controller] Retrieved ${data.length} meters for NOCS ${nocsName} in ${duration}s`);
 
     res.json({
       success: true,
       data,
       count: data.length,
       nocsName,
+      duration: `${duration}s`,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('[Reports Controller] Error in getMeterWiseCommandsByNocs:', error);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.error(`[Reports Controller] Error in getMeterWiseCommandsByNocs after ${duration}s:`, error);
 
     res.status(500).json({
       success: false,
       message: 'Failed to fetch meter-wise commands for NOCS',
-      error: error.message
+      error: error.message,
+      duration: `${duration}s`
     });
   }
 };
