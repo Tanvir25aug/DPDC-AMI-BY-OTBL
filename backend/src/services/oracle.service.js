@@ -6,11 +6,13 @@ const logger = require('../config/logger');
 class OracleService {
   /**
    * Validate query for security
+   * FIXED: Now checks for whole words only, not substrings
+   * Example: "LAST_UPDATE_DTTM" is allowed, "UPDATE table" is blocked
    */
   validateQuery(query) {
     const upperQuery = query.toUpperCase().trim();
 
-    // Block dangerous operations
+    // Block dangerous operations - using word boundaries to avoid false positives
     const dangerousKeywords = [
       'DROP',
       'DELETE',
@@ -26,14 +28,17 @@ class OracleService {
     ];
 
     for (const keyword of dangerousKeywords) {
-      if (upperQuery.includes(keyword)) {
+      // Use regex with word boundaries (\b) to match whole words only
+      // This prevents false positives like "LAST_UPDATE_DTTM" triggering "UPDATE"
+      const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+      if (regex.test(upperQuery)) {
         throw new Error(`Query contains forbidden keyword: ${keyword}`);
       }
     }
 
-    // Must start with SELECT
-    if (!upperQuery.startsWith('SELECT')) {
-      throw new Error('Only SELECT queries are allowed');
+    // Must start with SELECT or WITH (for CTEs)
+    if (!upperQuery.startsWith('SELECT') && !upperQuery.startsWith('WITH')) {
+      throw new Error('Only SELECT queries (including CTEs with WITH) are allowed');
     }
 
     return true;
@@ -55,7 +60,9 @@ class OracleService {
       // Remove trailing semicolon if present (Oracle doesn't like it)
       const cleanQuery = query.trim().replace(/;+$/, '');
 
-      const maxRows = options.maxRows || parseInt(process.env.DEFAULT_PAGE_SIZE) || 1000;
+      // FIXED: Allow unlimited rows (maxRows: 0 means no limit)
+      // If maxRows not specified, use 0 (no limit) instead of 1000
+      const maxRows = options.maxRows !== undefined ? options.maxRows : 0;
 
       // Execute query
       result = await executeQuery(cleanQuery, {}, { maxRows });

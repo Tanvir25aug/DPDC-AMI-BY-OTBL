@@ -75,15 +75,15 @@ SELECT * FROM employees WHERE department = 'IT' ORDER BY hire_date DESC"
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label for="maxRows" class="block text-sm font-semibold text-gray-700 mb-2">
-                Max Rows
+                Max Rows <span class="text-xs font-normal text-gray-500">(0 = unlimited)</span>
               </label>
               <input
                 id="maxRows"
                 v-model.number="maxRows"
                 type="number"
                 class="block w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-300 transition-all"
-                min="1"
-                max="10000"
+                min="0"
+                placeholder="0 = unlimited"
               />
             </div>
 
@@ -338,7 +338,7 @@ import { useQueryStore } from '@/stores/query';
 const queryStore = useQueryStore();
 
 const query = ref('');
-const maxRows = ref(1000);
+const maxRows = ref(0); // FIXED: Default to 0 (unlimited) instead of 1000
 const loading = ref(false);
 const error = ref(null);
 const focusedField = ref(null);
