@@ -81,6 +81,7 @@ const validateUserUpdate = [
 
 /**
  * Query execution validation
+ * FIXED: Allow maxRows: 0 for unlimited results
  */
 const validateQueryExecution = [
   body('query')
@@ -91,8 +92,8 @@ const validateQueryExecution = [
     .withMessage('Query is too long (max 10000 characters)'),
   body('maxRows')
     .optional()
-    .isInt({ min: 1, max: 10000 })
-    .withMessage('maxRows must be between 1 and 10000'),
+    .isInt({ min: 0 })
+    .withMessage('maxRows must be 0 or greater (0 = unlimited)'),
   handleValidationErrors
 ];
 
