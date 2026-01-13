@@ -11,11 +11,11 @@ const fs = require('fs');
 const path = require('path');
 
 const pool = new Pool({
-  host: process.env.PG_HOST || 'localhost',
-  port: process.env.PG_PORT || 5432,
-  database: process.env.PG_DATABASE || 'dpdc_ami_dev',
-  user: process.env.PG_USER || 'dev_user',
-  password: process.env.PG_PASSWORD || 'admin',
+  host: process.env.POSTGRES_HOST || 'localhost',
+  port: process.env.POSTGRES_PORT || 5432,
+  database: process.env.POSTGRES_DB || 'dpdc_ami_prod',
+  user: process.env.POSTGRES_USER || 'dpdc_prod_user',
+  password: process.env.POSTGRES_PASSWORD || 'admin',
 });
 
 async function setupTables() {
