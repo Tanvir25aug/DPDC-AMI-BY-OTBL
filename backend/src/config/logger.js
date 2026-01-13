@@ -13,6 +13,29 @@ const logFormat = winston.format.combine(
   winston.format.json()
 );
 
+// Helper function to safely stringify objects with circular references
+const safeStringify = (obj) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    // Handle circular references
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    // Handle Error objects properly
+    if (value instanceof Error) {
+      return {
+        message: value.message,
+        stack: value.stack,
+        name: value.name
+      };
+    }
+    return value;
+  });
+};
+
 // Console format for development
 const consoleFormat = winston.format.combine(
   winston.format.colorize(),
@@ -20,7 +43,11 @@ const consoleFormat = winston.format.combine(
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
     let msg = `${timestamp} [${level}]: ${message}`;
     if (Object.keys(meta).length > 0) {
-      msg += ` ${JSON.stringify(meta)}`;
+      try {
+        msg += ` ${safeStringify(meta)}`;
+      } catch (err) {
+        msg += ` [Error stringifying meta: ${err.message}]`;
+      }
     }
     return msg;
   })

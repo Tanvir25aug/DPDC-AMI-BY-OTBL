@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 120000, // Increased to 120 seconds for large Oracle queries
+  timeout: 420000, // Increased to 420 seconds (7 minutes) for large Oracle queries
   headers: {
     'Content-Type': 'application/json'
   }

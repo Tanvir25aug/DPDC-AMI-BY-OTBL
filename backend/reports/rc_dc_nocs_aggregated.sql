@@ -29,7 +29,7 @@ INNER JOIN ci_prem_char pc ON pc.prem_id = a.mailing_prem_id
     AND pc.char_type_cd = 'CM_NOCS'
 INNER JOIN ci_char_val_l vl ON vl.char_val = pc.char_val
     AND vl.language_cd = 'ENG'
-INNER JOIN d1_activity PARTITION(p2025DEC) l ON l.D1_ACTIVITY_ID = k.D1_ACTIVITY_ID
+INNER JOIN d1_activity PARTITION(p2026JAN) l ON l.D1_ACTIVITY_ID = k.D1_ACTIVITY_ID
     AND l.activity_type_cd IN ('REMOTEDISCONNECT', 'REMOTECONNECT')
 WHERE TRUNC(l.cre_dttm) = TRUNC(SYSDATE)
     AND l.BUS_OBJ_CD IN ('D1-RemoteConnect', 'D1-RemoteDisconnect')
