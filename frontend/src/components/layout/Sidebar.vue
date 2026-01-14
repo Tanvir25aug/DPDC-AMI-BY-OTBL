@@ -30,35 +30,102 @@
     <!-- Navigation -->
     <nav class="flex-1 px-3 py-4 overflow-y-auto scrollbar-thin">
       <ul class="space-y-1">
-        <li v-for="item in visibleNavItems" :key="item.path">
-          <router-link
-            :to="item.path"
-            :class="[
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-smooth duration-300',
-              'hover:bg-primary-50 group relative transform hover:translate-x-1',
-              isActive(item.path)
-                ? 'bg-primary-500 text-white hover:bg-primary-600 shadow-md'
-                : 'text-gray-700 hover:text-primary-700'
-            ]"
-          >
-            <component
-              :is="item.icon"
+        <template v-for="item in visibleNavItems" :key="item.path || item.label">
+          <!-- Grouped Menu Items -->
+          <li v-if="item.children" class="mb-2">
+            <!-- Category Header -->
+            <button
+              @click="toggleGroup(item.label)"
               :class="[
-                'w-6 h-6 flex-shrink-0 transition-smooth duration-300 transform group-hover:scale-110',
-                isActive(item.path) ? 'text-white' : 'text-gray-500 group-hover:text-primary-500'
+                'w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-smooth duration-300',
+                'hover:bg-gray-100 group relative',
+                'text-gray-700 font-semibold text-sm'
               ]"
-            />
-            <span v-if="!isCollapsed" class="font-medium truncate">{{ item.label }}</span>
-
-            <!-- Tooltip for collapsed state -->
-            <div
-              v-if="isCollapsed"
-              class="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50"
             >
-              {{ item.label }}
-            </div>
-          </router-link>
-        </li>
+              <div class="flex items-center gap-3">
+                <component
+                  :is="item.icon"
+                  class="w-6 h-6 flex-shrink-0 text-gray-500"
+                />
+                <span v-if="!isCollapsed" class="font-medium">{{ item.label }}</span>
+              </div>
+              <ChevronDownIcon
+                v-if="!isCollapsed"
+                :class="[
+                  'w-5 h-5 transition-transform duration-300',
+                  expandedGroups[item.label] ? 'rotate-180' : ''
+                ]"
+              />
+
+              <!-- Tooltip for collapsed state -->
+              <div
+                v-if="isCollapsed"
+                class="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50"
+              >
+                {{ item.label }}
+              </div>
+            </button>
+
+            <!-- Submenu Items -->
+            <ul
+              v-if="!isCollapsed"
+              :class="[
+                'ml-6 mt-1 space-y-1 overflow-hidden transition-all duration-300',
+                expandedGroups[item.label] ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+              ]"
+            >
+              <li v-for="child in item.children" :key="child.path">
+                <router-link
+                  :to="child.path"
+                  :class="[
+                    'flex items-center gap-3 px-3 py-2 rounded-lg transition-smooth duration-300',
+                    'hover:bg-primary-50 group relative',
+                    isActive(child.path)
+                      ? 'bg-primary-500 text-white hover:bg-primary-600'
+                      : 'text-gray-600 hover:text-primary-700'
+                  ]"
+                >
+                  <div :class="[
+                    'w-2 h-2 rounded-full flex-shrink-0',
+                    isActive(child.path) ? 'bg-white' : 'bg-gray-400 group-hover:bg-primary-500'
+                  ]"></div>
+                  <span class="text-sm font-medium truncate">{{ child.label }}</span>
+                </router-link>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Regular Menu Items -->
+          <li v-else>
+            <router-link
+              :to="item.path"
+              :class="[
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-smooth duration-300',
+                'hover:bg-primary-50 group relative transform hover:translate-x-1',
+                isActive(item.path)
+                  ? 'bg-primary-500 text-white hover:bg-primary-600 shadow-md'
+                  : 'text-gray-700 hover:text-primary-700'
+              ]"
+            >
+              <component
+                :is="item.icon"
+                :class="[
+                  'w-6 h-6 flex-shrink-0 transition-smooth duration-300 transform group-hover:scale-110',
+                  isActive(item.path) ? 'text-white' : 'text-gray-500 group-hover:text-primary-500'
+                ]"
+              />
+              <span v-if="!isCollapsed" class="font-medium truncate">{{ item.label }}</span>
+
+              <!-- Tooltip for collapsed state -->
+              <div
+                v-if="isCollapsed"
+                class="absolute left-full ml-2 px-3 py-1.5 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50"
+              >
+                {{ item.label }}
+              </div>
+            </router-link>
+          </li>
+        </template>
       </ul>
     </nav>
 
@@ -129,11 +196,13 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
   BoltIcon,
   TableCellsIcon,
   CurrencyDollarIcon,
   CpuChipIcon,
   StopCircleIcon,
+  ShoppingCartIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -152,6 +221,7 @@ const authStore = useAuthStore();
 const isCollapsed = ref(false);
 const isMobileOpen = computed(() => props.modelValue);
 const isMobile = ref(window.innerWidth < 1024);
+const expandedGroups = ref({});
 
 // Navigation items
 const navItems = [
@@ -216,22 +286,29 @@ const navItems = [
     label: 'Bill Stop',
     icon: StopCircleIcon,
   },
-  // Payment reports disabled - requires ci_pay tables access
-  // {
-  //   path: '/bank-wise-collection',
-  //   label: 'Bank Collection',
-  //   icon: CurrencyDollarIcon,
-  // },
-  // {
-  //   path: '/bank-reconciliation',
-  //   label: 'Bank Reconciliation',
-  //   icon: DocumentTextIcon,
-  // },
-  // {
-  //   path: '/nocs-collection-summary',
-  //   label: 'NOCS Collection',
-  //   icon: CurrencyDollarIcon,
-  // },
+  // Collection & Vending grouped menu
+  {
+    label: 'Collection & Vending',
+    icon: ShoppingCartIcon,
+    children: [
+      {
+        path: '/bank-wise-collection',
+        label: 'Bank Wise Collection',
+      },
+      {
+        path: '/bank-reconciliation',
+        label: 'Data for Bank Reconciliation',
+      },
+      {
+        path: '/nocs-collection-summary',
+        label: 'NOCS Total Collection Summary',
+      },
+      {
+        path: '/nocs-meter-installation',
+        label: 'NOCS Wise Meter Installation',
+      },
+    ],
+  },
   {
     path: '/query-history',
     label: 'History',
@@ -258,6 +335,11 @@ const visibleNavItems = computed(() => {
 // Check if route is active
 const isActive = (path) => {
   return route.path === path || route.path.startsWith(path + '/');
+};
+
+// Toggle group expansion
+const toggleGroup = (groupLabel) => {
+  expandedGroups.value[groupLabel] = !expandedGroups.value[groupLabel];
 };
 
 // Toggle collapsed state

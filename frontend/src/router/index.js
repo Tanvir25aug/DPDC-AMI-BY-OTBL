@@ -83,6 +83,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/nocs-meter-installation',
+      name: 'nocs-meter-installation',
+      component: () => import('@/views/NocsMeterInstallationView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/nocs-balance-summary',
       name: 'nocs-balance-summary',
       component: () => import('@/views/NocsBalanceSummaryView.vue'),
