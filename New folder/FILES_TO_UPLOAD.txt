@@ -1,0 +1,66 @@
+========================================
+FILES TO UPLOAD VIA WINSCP
+========================================
+
+SERVER: 172.18.42.200
+USER: oculin
+BASE PATH: /home/oculin/DPDC-AMI-BY-OTBL
+
+========================================
+BACKEND FILES (14 files)
+========================================
+
+📁 backend/src/services/
+  ☐ batch-monitoring.service.js
+  ☐ teams.service.js
+
+📁 backend/src/schedulers/
+  ☐ batch-monitoring.scheduler.js
+  ☐ teams-reports.scheduler.js
+
+📁 backend/src/config/
+  ☐ teams-webhooks.js
+
+📁 backend/src/controllers/
+  ☐ ami-operational.controller.js
+
+📁 backend/src/routes/
+  ☐ ami-operational.routes.js
+
+📁 backend/migrations/
+  ☐ create_batch_monitoring_history.sql
+
+📁 backend/src/
+  ☐ server.js
+
+📁 backend/
+  ☐ package.json
+  ☐ package-lock.json
+  ☐ TEST_TEAMS_REPORTS.js
+  ☐ SETUP_MONITORING_TABLE.js
+  ☐ CHECK_STATUS_VALUES.js
+
+========================================
+FRONTEND FILES (2 files)
+========================================
+
+📁 frontend/src/views/
+  ☐ AMIOperationalView.vue
+
+📁 frontend/src/services/
+  ☐ ami-operational.api.js
+
+========================================
+TOTAL: 17 FILES
+========================================
+
+AFTER UPLOAD, RUN ON SERVER:
+----------------------------
+cd ~/DPDC-AMI-BY-OTBL/backend
+npm install
+node SETUP_MONITORING_TABLE.js
+nano src/config/teams-webhooks.js
+pm2 restart dpdc-ami-backend
+pm2 logs dpdc-ami-backend --lines 30
+
+========================================

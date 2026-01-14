@@ -50,4 +50,7 @@ router.get('/nocs-customer-payoff/:nocsCode/paginated', reportsController.getNoc
 router.get('/nocs-customer-payoff/:nocsCode/summary', reportsController.getNocsCustomerPayoffSummary);
 router.get('/nocs-customer-payoff/:nocsCode', reportsController.getNocsCustomerPayoff); // DEPRECATED: Use paginated version
 
+// Generic Report Execution (NEW - executes any SQL report with dynamic parameters)
+router.get('/execute', reportsController.executeGenericReport);
+
 module.exports = router;

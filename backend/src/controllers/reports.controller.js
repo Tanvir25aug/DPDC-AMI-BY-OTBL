@@ -1103,6 +1103,54 @@ const getNocsCustomerPayoff = async (req, res) => {
   }
 };
 
+/**
+ * Generic Report Execution Endpoint
+ * Executes any SQL report by name with dynamic parameters
+ * @param {string} reportName - Name of the SQL file (without .sql extension)
+ * @param {object} ...params - Any bind parameters for the SQL query
+ */
+const executeGenericReport = async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { reportName, ...params } = req.query;
+
+    if (!reportName) {
+      return res.status(400).json({
+        success: false,
+        message: 'reportName is required'
+      });
+    }
+
+    console.log(`[Reports Controller] Executing generic report: ${reportName}`, params);
+
+    // Execute report with all query parameters as bind params
+    const data = await reportsService.executeReport(reportName, params, { maxRows: 0 });
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Reports Controller] Generic report ${reportName} completed: ${data.length} rows in ${duration}s`);
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+      reportName,
+      parameters: params,
+      duration: `${duration}s`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.error(`[Reports Controller] Error in executeGenericReport after ${duration}s:`, error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to execute report',
+      error: error.message,
+      duration: `${duration}s`
+    });
+  }
+};
+
 // Helper: Format date for Oracle
 function formatDateForOracle(date) {
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -1132,5 +1180,6 @@ module.exports = {
   getNocsBalanceSummary, // NEW: NOCS balance summary (hourly cached)
   getNocsCustomerPayoff, // DEPRECATED: Customer payoff balance by NOCS (use paginated version)
   getNocsCustomerPayoffPaginated, // NEW: Customer payoff balance by NOCS (paginated)
-  getNocsCustomerPayoffSummary // NEW: Customer payoff summary statistics only
+  getNocsCustomerPayoffSummary, // NEW: Customer payoff summary statistics only
+  executeGenericReport // NEW: Generic report execution endpoint
 };
