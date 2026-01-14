@@ -1,18 +1,6 @@
 const reportsService = require('../services/reports.service');
 const cacheService = require('../services/cache.service');
-const { Pool } = require('pg');
-
-// PostgreSQL connection for bill stop data
-const pgPool = new Pool({
-  host: process.env.PG_HOST || 'localhost',
-  port: process.env.PG_PORT || 5432,
-  database: process.env.PG_DATABASE || 'dpdc_ami',
-  user: process.env.PG_USER || 'postgres',
-  password: process.env.PG_PASSWORD || 'postgres',
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-});
+const pgPool = require('../config/postgresDB');
 
 /**
  * Get CRP-CPC List with Pagination, Search, and Filters
