@@ -34,6 +34,7 @@ build/
 # Database
 *.sql
 !backend/reports/*.sql
+!backend/migrations/*.sql
 *.sqlite
 *.db
 
