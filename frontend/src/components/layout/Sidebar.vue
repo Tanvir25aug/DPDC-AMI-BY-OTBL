@@ -1,13 +1,13 @@
 <template>
   <aside
     :class="[
-      'sidebar fixed top-0 left-0 h-full bg-white shadow-sidebar transition-smooth duration-400 z-50',
+      'sidebar fixed top-0 left-0 h-full bg-white shadow-sidebar transition-smooth duration-400 z-50 flex flex-col',
       isCollapsed ? 'w-16' : 'w-72',
       isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
     ]"
   >
     <!-- Logo/Brand -->
-    <div class="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+    <div class="flex items-center justify-between h-16 px-4 border-b border-gray-200 flex-shrink-0">
       <router-link
         to="/dashboard"
         class="flex items-center gap-3 font-bold text-lg text-primary-700 hover:text-primary-800 transition-colors"
@@ -130,7 +130,7 @@
     </nav>
 
     <!-- User Profile Section -->
-    <div class="border-t border-gray-200 p-4">
+    <div class="border-t border-gray-200 p-4 flex-shrink-0">
       <router-link
         to="/profile"
         :class="[
