@@ -1,13 +1,14 @@
--- NOCS Total Collection Summary (Fixed - No Duplicate Transactions)
--- Shows NOCS-wise collection with Principal Amount, VAT (5%), and Total
+-- Bank-Wise Collection Summary with NOCS Breakdown
+-- Shows collection grouped by NOCS and Bank with Principal, VAT (5%), and Total
 -- Parameters: :start_date, :end_date (YYYY-MM-DD format)
 
 WITH unique_transactions AS (
-    -- Get unique payment transactions with NOCS (avoid duplicates from multiple JOINs)
+    -- Get unique payment transactions with NOCS and Bank (avoid duplicates from multiple JOINs)
     SELECT DISTINCT
         t1.pay_event_id,
         t1.tender_amt,
         t2.pay_dt,
+        t4.descr AS Bank_name,
         p.CHAR_VAL AS NOCS_CODE,
         l.descr AS NOCS_NAME
     FROM CI_PAY_TNDR T1
@@ -37,6 +38,7 @@ WITH unique_transactions AS (
 SELECT
     NOCS_CODE,
     NOCS_NAME,
+    Bank_name AS BANK_NAME,
     ROUND(SUM(tender_amt), 2) AS PRINCIPAL_AMOUNT,
     ROUND(SUM(tender_amt) * 0.05, 2) AS VAT_AMOUNT,
     ROUND(SUM(tender_amt) * 1.05, 2) AS TOTAL_AMOUNT,
@@ -44,5 +46,5 @@ SELECT
     TO_CHAR(MIN(pay_dt), 'DD-MON-YYYY') AS FIRST_PAYMENT_DATE,
     TO_CHAR(MAX(pay_dt), 'DD-MON-YYYY') AS LAST_PAYMENT_DATE
 FROM unique_transactions
-GROUP BY NOCS_CODE, NOCS_NAME
+GROUP BY NOCS_CODE, NOCS_NAME, Bank_name
 ORDER BY SUM(tender_amt) DESC

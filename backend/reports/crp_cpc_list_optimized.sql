@@ -28,7 +28,7 @@ LATEST_BILLING AS (
         bs.sa_id,
         MAX(bs.end_dt) as end_dt
     FROM ci_bseg bs
-    WHERE bs.bseg_stat_flg <> '60'
+    WHERE bs.bseg_stat_flg = '50'  -- Only frozen/completed bills
         AND bs.end_dt >= ADD_MONTHS(TRUNC(SYSDATE, 'YEAR'), -12) -- Only last 12 months
     GROUP BY bs.sa_id
 ),
@@ -48,7 +48,7 @@ BILLED_CPC AS (
     JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = sp.sp_id
     JOIN ci_sa sa ON sa.sa_id = sa_sp.sa_id AND sa.sa_type_cd = 'PPD'
     JOIN LATEST_BILLING lb ON lb.sa_id = sa.sa_id
-        AND lb.end_dt >= TRUNC(SYSDATE, 'MM') -- Billed this month
+        AND lb.end_dt > TRUNC(SYSDATE, 'MM') -- Billed this month (end_dt AFTER 1st of month)
     GROUP BY cpr_ref.adhoc_char_val
 )
 SELECT

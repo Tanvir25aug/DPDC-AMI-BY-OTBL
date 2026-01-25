@@ -18,19 +18,19 @@ const searchCustomer = async (req, res) => {
 
     logger.info(`[Bill Stop] Searching for customer: ${searchValue}`);
 
-    // TODO: Implement customer search logic
-    // This will search in the database for customer by ID or meter number
+    // Search customer with billing status from Oracle
+    const result = await billStopService.searchCustomerWithBillingStatus(searchValue);
+
+    if (!result.success) {
+      return res.status(404).json({
+        success: false,
+        message: result.message || 'Customer not found'
+      });
+    }
 
     res.json({
       success: true,
-      data: {
-        CUSTOMER_ID: searchValue,
-        CUSTOMER_NAME: 'Sample Customer',
-        METER_NO: '12345678',
-        NOCS_NAME: 'Banasree',
-        ADDRESS: 'Sample Address',
-        PHONE_NO: '01712345678'
-      },
+      data: result.data,
       message: 'Customer found successfully'
     });
   } catch (error) {

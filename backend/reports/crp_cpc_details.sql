@@ -53,10 +53,10 @@ BILLING_INFO AS (
     SELECT
         sa.sa_id,
         MAX(bs.end_dt) AS LAST_BILL_DATE,
-        MAX(CASE WHEN bs.end_dt >= TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
+        MAX(CASE WHEN bs.end_dt > TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
     FROM ci_bseg bs
     JOIN SA_INFO sa ON sa.sa_id = bs.sa_id
-    WHERE bs.bseg_stat_flg <> '60'
+    WHERE bs.bseg_stat_flg = '50'  -- Only frozen/completed bills
     GROUP BY sa.sa_id
 )
 SELECT

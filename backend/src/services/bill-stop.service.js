@@ -67,13 +67,18 @@ const runBillStopAnalysis = async (username = 'system') => {
       }
 
       // Compare last bill date with current month start
+      // Note: lastBillDate is the END of billing period (end_dt from ci_bseg)
+      // A bill with end_dt = 01-JAN is a December bill (covers up to Jan 1)
+      // A bill with end_dt > 01-JAN (e.g., 02-JAN) covers January usage
       const lastBillDateObj = new Date(lastBillDate);
 
-      if (lastBillDateObj >= currentMonthStart) {
+      if (lastBillDateObj > currentMonthStart) {
         // Customer was billed in current month - active
+        // (bill end date is AFTER the 1st of current month)
         activeBillingCount++;
       } else {
         // Customer was NOT billed in current month - stopped
+        // (bill end date is ON or BEFORE the 1st of current month)
         stoppedBillingCount++;
       }
     }
@@ -176,8 +181,84 @@ const getAnalysisHistory = async (limit = 10) => {
   }
 };
 
+/**
+ * Search customer by ID or Meter Number with billing status
+ */
+const searchCustomerWithBillingStatus = async (searchValue) => {
+  let connection;
+
+  try {
+    logger.info(`[Bill Stop Service] Searching for customer: ${searchValue}`);
+
+    // Read SQL query from file
+    const sqlFilePath = path.join(__dirname, '../../reports/customer_search_with_billing_status.sql');
+    let sqlQuery = await fs.readFile(sqlFilePath, 'utf8');
+
+    // Clean SQL: remove comments and extra whitespace
+    sqlQuery = sqlQuery
+      .split('\n')
+      .filter(line => !line.trim().startsWith('--'))
+      .join('\n')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/;$/, '');
+
+    // Connect to Oracle
+    connection = await getOracleConnection();
+
+    const result = await connection.execute(
+      sqlQuery,
+      { search_value: searchValue },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    if (result.rows.length === 0) {
+      logger.info(`[Bill Stop Service] No customer found for: ${searchValue}`);
+      return {
+        success: false,
+        message: 'Customer not found',
+        data: null
+      };
+    }
+
+    const customer = result.rows[0];
+    logger.info(`[Bill Stop Service] Found customer: ${customer.CUSTOMER_ID}, Billing Status: ${customer.BILLING_STATUS}`);
+
+    return {
+      success: true,
+      data: {
+        CUSTOMER_ID: customer.CUSTOMER_ID,
+        CUSTOMER_NAME: customer.CUSTOMER_NAME,
+        METER_NO: customer.METER_NO,
+        NOCS_NAME: customer.NOCS_NAME,
+        ADDRESS: customer.ADDRESS,
+        PHONE_NO: customer.PHONE_NO,
+        SA_STATUS: customer.SA_STATUS,
+        LAST_BILL_DATE: customer.LAST_BILL_DATE,
+        BILLING_STATUS: customer.BILLING_STATUS,
+        BILLED_THIS_MONTH: customer.BILLED_THIS_MONTH,
+        CURRENT_BALANCE: customer.CURRENT_BALANCE,
+        CURRENT_BILLING_MONTH: customer.CURRENT_BILLING_MONTH,
+        MATCH_TYPE: customer.MATCH_TYPE
+      }
+    };
+  } catch (error) {
+    logger.error('[Bill Stop Service] Error searching customer:', error);
+    throw error;
+  } finally {
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (err) {
+        logger.error('[Bill Stop Service] Error closing connection:', err);
+      }
+    }
+  }
+};
+
 module.exports = {
   runBillStopAnalysis,
   getLatestAnalysis,
-  getAnalysisHistory
+  getAnalysisHistory,
+  searchCustomerWithBillingStatus
 };

@@ -20,7 +20,7 @@ JOIN ci_sp_char crp_char
     AND crp_char.char_type_cd = 'CM_CPRLA'
 JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = cpc_char.sp_id
 JOIN ci_sa sa ON sa.sa_id = sa_sp.sa_id AND sa.sa_type_cd = 'PPD'
-LEFT JOIN ci_bseg bs ON bs.sa_id = sa.sa_id AND bs.bseg_stat_flg <> '60'
+LEFT JOIN ci_bseg bs ON bs.sa_id = sa.sa_id AND bs.bseg_stat_flg = '50'  -- Only frozen bills
 LEFT JOIN ci_acct acc ON acc.acct_id = sa.acct_id
 LEFT JOIN ci_acct_per acc_per ON acc_per.acct_id = acc.acct_id AND acc_per.main_cust_sw = 'Y'
 LEFT JOIN ci_per_name per_name ON per_name.per_id = acc_per.per_id

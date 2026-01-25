@@ -20,10 +20,10 @@ BILLING_STATUS AS (
     SELECT /*+ PARALLEL(8) */
         cpc.CRP_ACCOUNT_NO,
         cpc.CPC_CUSTOMER_NO,
-        MAX(CASE WHEN bs.end_dt >= TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
+        MAX(CASE WHEN bs.end_dt > TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
     FROM LIMITED_CPC cpc
     LEFT JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = cpc.sp_id
-    LEFT JOIN ci_bseg bs ON bs.sa_id = sa_sp.sa_id AND bs.bseg_stat_flg <> '60'
+    LEFT JOIN ci_bseg bs ON bs.sa_id = sa_sp.sa_id AND bs.bseg_stat_flg = '50'  -- Only frozen bills
     GROUP BY cpc.CRP_ACCOUNT_NO, cpc.CPC_CUSTOMER_NO
 )
 SELECT

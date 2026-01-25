@@ -6,14 +6,14 @@ WITH CRP_CPC_BILLING AS (
     SELECT /*+ PARALLEL(4) */
         crp_char.adhoc_char_val AS CRP_ACCOUNT_NO,
         cpc_char.adhoc_char_val AS CPC_CUSTOMER_NO,
-        MAX(CASE WHEN bs.end_dt >= TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
+        MAX(CASE WHEN bs.end_dt > TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
     FROM ci_sp_char cpc_char
     JOIN ci_sp_char crp_char
         ON crp_char.sp_id = cpc_char.sp_id
         AND crp_char.char_type_cd = 'CM_CPRLA'
     JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = cpc_char.sp_id
     JOIN ci_sa sa ON sa.sa_id = sa_sp.sa_id AND sa.sa_type_cd = 'PPD'
-    LEFT JOIN ci_bseg bs ON bs.sa_id = sa.sa_id AND bs.bseg_stat_flg <> '60'
+    LEFT JOIN ci_bseg bs ON bs.sa_id = sa.sa_id AND bs.bseg_stat_flg = '50'  -- Only frozen bills
     WHERE cpc_char.char_type_cd = 'CM_LEGCY'
         AND cpc_char.adhoc_char_val IS NOT NULL
         AND crp_char.adhoc_char_val IS NOT NULL

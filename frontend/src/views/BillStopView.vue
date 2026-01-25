@@ -90,7 +90,13 @@
 
     <!-- Customer Info Card (shown after search) -->
     <div v-if="customerData" class="card customer-info">
-      <h3>Customer Information</h3>
+      <div class="customer-header">
+        <h3>Customer Information</h3>
+        <span :class="['billing-status-badge', getBillingStatusClass(customerData.BILLING_STATUS)]">
+          {{ customerData.BILLING_STATUS || 'Unknown' }}
+        </span>
+      </div>
+
       <div class="info-grid">
         <div class="info-item">
           <label>Customer ID:</label>
@@ -115,6 +121,43 @@
         <div class="info-item">
           <label>Phone:</label>
           <span>{{ customerData.PHONE_NO || 'N/A' }}</span>
+        </div>
+      </div>
+
+      <!-- Billing Status Section -->
+      <div class="billing-status-section">
+        <h4>Billing Status Details</h4>
+        <div class="billing-info-grid">
+          <div class="billing-info-item">
+            <label>SA Status:</label>
+            <span :class="['sa-status', customerData.SA_STATUS?.toLowerCase()]">
+              {{ customerData.SA_STATUS || 'N/A' }}
+            </span>
+          </div>
+          <div class="billing-info-item">
+            <label>Last Bill Date:</label>
+            <span>{{ customerData.LAST_BILL_DATE || 'Never Billed' }}</span>
+          </div>
+          <div class="billing-info-item">
+            <label>Current Billing Month:</label>
+            <span>{{ customerData.CURRENT_BILLING_MONTH || 'N/A' }}</span>
+          </div>
+          <div class="billing-info-item">
+            <label>Current Balance:</label>
+            <span class="balance">৳ {{ formatCurrency(customerData.CURRENT_BALANCE) }}</span>
+          </div>
+          <div class="billing-info-item full-width">
+            <label>Billing Status:</label>
+            <span :class="['billing-status-text', getBillingStatusClass(customerData.BILLING_STATUS)]">
+              {{ customerData.BILLING_STATUS || 'Unknown' }}
+              <span v-if="customerData.BILLING_STATUS === 'Bill Stop Issue'" class="status-hint">
+                (Not billed in {{ customerData.CURRENT_BILLING_MONTH }})
+              </span>
+              <span v-else-if="customerData.BILLING_STATUS === 'Active Billing'" class="status-hint">
+                (Billed in {{ customerData.CURRENT_BILLING_MONTH }})
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -186,7 +229,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import api from '@/services/api';
 
 const router = useRouter();
 
@@ -212,21 +255,10 @@ const runAnalysis = async () => {
   error.value = '';
 
   try {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      error.value = 'Authentication required. Please log in.';
-      analysisLoading.value = false;
-      return;
-    }
-
-    const response = await axios.post('/api/bill-stop/run-analysis', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.post('/bill-stop/run-analysis', {});
 
     if (response.data.success) {
       analysisData.value = response.data.data;
-      // Show success message
       console.log('Analysis completed successfully');
     } else {
       error.value = response.data.message || 'Failed to run analysis';
@@ -242,16 +274,7 @@ const runAnalysis = async () => {
 // Load latest analysis
 const loadLatestAnalysis = async () => {
   try {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      console.log('No token found, skipping analysis load');
-      return;
-    }
-
-    const response = await axios.get('/api/bill-stop/latest-analysis', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get('/bill-stop/latest-analysis');
 
     if (response.data.success && response.data.data) {
       analysisData.value = response.data.data;
@@ -279,6 +302,25 @@ const formatDateTime = (dateStr) => {
   });
 };
 
+// Get billing status CSS class
+const getBillingStatusClass = (status) => {
+  if (!status) return 'unknown';
+  const statusLower = status.toLowerCase();
+  if (statusLower.includes('active')) return 'active';
+  if (statusLower.includes('stop') || statusLower.includes('issue')) return 'stopped';
+  if (statusLower.includes('never')) return 'never-billed';
+  return 'unknown';
+};
+
+// Format currency
+const formatCurrency = (amount) => {
+  if (amount === null || amount === undefined) return '0.00';
+  return Number(amount).toLocaleString('en-BD', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
 // Search customer
 const handleSearch = async () => {
   if (!searchValue.value.trim()) {
@@ -291,26 +333,21 @@ const handleSearch = async () => {
   customerData.value = null;
 
   try {
-    // TODO: Replace with actual API call
-    // const response = await fetch(`/api/bill-stop/search?value=${searchValue.value}`);
-    // const data = await response.json();
+    const response = await api.get('/bill-stop/search', {
+      params: { searchValue: searchValue.value }
+    });
 
-    // Mock data for now
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    customerData.value = {
-      CUSTOMER_ID: searchValue.value,
-      CUSTOMER_NAME: 'Sample Customer',
-      METER_NO: '12345678',
-      NOCS_NAME: 'Banasree',
-      ADDRESS: 'Sample Address, Dhaka',
-      PHONE_NO: '01712345678'
-    };
-
-    // Load records
-    loadRecords();
+    if (response.data.success) {
+      customerData.value = response.data.data;
+    } else {
+      error.value = response.data.message || 'Customer not found';
+    }
   } catch (err) {
-    error.value = 'Failed to fetch customer data. Please try again.';
+    if (err.response?.status === 404) {
+      error.value = 'Customer not found. Please check the Customer ID or Meter Number.';
+    } else {
+      error.value = 'Failed to fetch customer data. Please try again.';
+    }
     console.error('Error searching customer:', err);
   } finally {
     loading.value = false;
@@ -602,6 +639,46 @@ const formatDate = (dateStr) => {
 }
 
 /* Customer Info */
+.customer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.customer-header h3 {
+  margin: 0;
+}
+
+.billing-status-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.billing-status-badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.billing-status-badge.stopped {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.billing-status-badge.never-billed {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.billing-status-badge.unknown {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
 .customer-info .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -624,6 +701,94 @@ const formatDate = (dateStr) => {
 .info-item span {
   color: #2c3e50;
   font-size: 14px;
+}
+
+/* Billing Status Section */
+.billing-status-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.billing-status-section h4 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.billing-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.billing-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.billing-info-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.billing-info-item label {
+  font-weight: 600;
+  color: #7f8c8d;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.billing-info-item span {
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.billing-info-item .balance {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+.sa-status {
+  font-weight: 600;
+}
+
+.sa-status.active {
+  color: #27ae60;
+}
+
+.sa-status.stopped {
+  color: #e74c3c;
+}
+
+.sa-status.pending {
+  color: #f39c12;
+}
+
+.billing-status-text {
+  font-weight: 600;
+}
+
+.billing-status-text.active {
+  color: #27ae60;
+}
+
+.billing-status-text.stopped {
+  color: #e74c3c;
+}
+
+.billing-status-text.never-billed {
+  color: #f39c12;
+}
+
+.status-hint {
+  font-weight: 400;
+  color: #7f8c8d;
+  font-size: 12px;
 }
 
 .action-buttons {

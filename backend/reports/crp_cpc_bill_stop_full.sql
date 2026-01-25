@@ -25,11 +25,11 @@ SA_WITH_BILLING AS (
         MIN(sa.sa_id) AS sa_id,
         MIN(sa.sa_status_flg) AS sa_status_flg,
         MAX(bs.end_dt) AS LAST_BILL_DATE,
-        MAX(CASE WHEN bs.end_dt >= TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
+        MAX(CASE WHEN bs.end_dt > TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
     FROM CPC_WITH_CRP cpc
     LEFT JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = cpc.sp_id
     LEFT JOIN ci_sa sa ON sa.sa_id = sa_sp.sa_id AND sa.sa_type_cd = 'PPD'
-    LEFT JOIN ci_bseg bs ON bs.sa_id = sa.sa_id AND bs.bseg_stat_flg <> '60'
+    LEFT JOIN ci_bseg bs ON bs.sa_id = sa.sa_id AND bs.bseg_stat_flg = '50'  -- Only frozen bills
     GROUP BY cpc.CPC_CUSTOMER_NO, cpc.CRP_ACCOUNT_NO, cpc.sp_id
 ),
 ALL_CUSTOMERS AS (

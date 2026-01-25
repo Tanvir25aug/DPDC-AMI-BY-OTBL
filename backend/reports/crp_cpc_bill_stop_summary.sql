@@ -37,12 +37,15 @@ SA_INFO AS (
 ),
 BILLING_INFO AS (
     -- Get latest billing info with current month check
+    -- Note: end_dt > TRUNC(SYSDATE, 'MM') means bill period ends AFTER 1st of current month
+    -- A bill with end_dt = 01-JAN is a December bill (covers up to Jan 1)
+    -- A bill with end_dt = 02-JAN or later covers January usage
     SELECT
         sa.sa_id,
-        MAX(CASE WHEN bs.end_dt >= TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
+        MAX(CASE WHEN bs.end_dt > TRUNC(SYSDATE, 'MM') THEN 1 ELSE 0 END) AS BILLED_THIS_MONTH
     FROM ci_bseg bs
     JOIN SA_INFO sa ON sa.sa_id = bs.sa_id
-    WHERE bs.bseg_stat_flg <> '60'
+    WHERE bs.bseg_stat_flg = '50'  -- Only frozen/completed bills
     GROUP BY sa.sa_id
 ),
 CPC_BILLING_STATUS AS (
