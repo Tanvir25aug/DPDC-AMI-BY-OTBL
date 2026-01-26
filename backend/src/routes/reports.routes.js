@@ -42,6 +42,12 @@ router.get('/nocs_collection_summary', reportsController.getNocsCollectionSummar
 router.get('/customer_billing_details', reportsController.getCustomerBillingDetails);
 router.get('/customer_details', reportsController.getCustomerDetails);
 
+// Progressive Loading Endpoints for Customer Details Page
+router.get('/customer_info', reportsController.getCustomerInfo);
+router.get('/customer_balance', reportsController.getCustomerBalance);
+router.get('/customer_billing', reportsController.getCustomerBilling);
+router.get('/customer_recharge', reportsController.getCustomerRecharge);
+
 // NOCS Balance Summary (Ultra Fast - Pre-calculated hourly)
 router.get('/nocs_balance_summary', reportsController.getNocsBalanceSummary);
 

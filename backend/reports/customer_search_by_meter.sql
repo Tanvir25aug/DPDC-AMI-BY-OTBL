@@ -17,7 +17,8 @@ WITH current_installation AS (
             WHEN '50' THEN 'Reactivated'
             ELSE 'Unknown'
         END AS STATUS_DESCRIPTION,
-        sa.acct_id AS ACCT_ID
+        sa.acct_id AS ACCT_ID,
+        dvc.id_value AS METER_NO
     FROM d1_dvc_identifier dvc
     INNER JOIN d1_dvc_cfg cfg
         ON dvc.d1_device_id = cfg.d1_device_id
@@ -62,7 +63,7 @@ SELECT
     ci.ACCT_ID,
     p1.address1 || ', ' || p1.address2 || ', ' || p1.address3 || ', ' || p1.address4 AS ADDRESS,
     mob.contact_value AS PHONE_NO,
-    NULL AS METER_NO,
+    ci.METER_NO,
     lb.LAST_BILL_DATE
 FROM current_installation ci
 LEFT JOIN ci_acct acc ON acc.acct_id = ci.ACCT_ID

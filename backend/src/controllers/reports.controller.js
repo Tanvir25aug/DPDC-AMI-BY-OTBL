@@ -679,7 +679,8 @@ function calculateBillingAnalytics(dailyData, monthlyData) {
 
   const totalConsumption = dailyData.reduce((sum, r) => sum + parseFloat(r.QUANTITY || 0), 0);
   const totalCharges = dailyData.reduce((sum, r) => sum + parseFloat(r.DAILY_CHARGES || 0), 0);
-  const currentBalance = dailyData[dailyData.length - 1]?.PAYOFF_BAL || 0;
+  // currentBalance is now fetched separately via real-time balance query
+  const currentBalance = 0;
 
   const dailyCharges = dailyData.map(r => parseFloat(r.DAILY_CHARGES || 0));
   const highestDailyCharge = Math.max(...dailyCharges);
@@ -706,10 +707,17 @@ function calculateBillingAnalytics(dailyData, monthlyData) {
  * Get Customer Details (New Page)
  * Search by Customer ID or Meter Number
  * Returns customer info, billing history, and recharge history
+ *
+ * Query params:
+ * - searchValue: Customer ID or Meter Number (required)
+ * - fetchAll: If true, fetch all billing history (default: false, last 12 months)
+ * - billingOnly: If true, only fetch billing data (skip customer info and recharge history)
+ * - startDate: Optional start date filter
+ * - endDate: Optional end date filter
  */
 const getCustomerDetails = async (req, res) => {
   try {
-    const { searchValue, startDate, endDate, fetchAll } = req.query;
+    const { searchValue, startDate, endDate, fetchAll, billingOnly } = req.query;
 
     if (!searchValue) {
       return res.status(400).json({
@@ -718,52 +726,58 @@ const getCustomerDetails = async (req, res) => {
       });
     }
 
-    console.log('[Reports Controller] Fetching customer details for:', searchValue);
+    const isBillingOnly = billingOnly === 'true';
+    console.log('[Reports Controller] Fetching customer details for:', searchValue, isBillingOnly ? '(billing only)' : '');
 
-    // 1. Try to find customer by ID first (fast path - dedicated query)
-    let customerData = await reportsService.executeReport('customer_details_search', {
-      searchValue
-    });
+    let customer = null;
+    let saId = null;
+    let custId = searchValue;
+    let rechargeHistory = [];
 
-    // 2. If not found, try meter number search (optimized single query)
-    if (!customerData || customerData.length === 0) {
-      console.log('[Reports Controller] Customer ID not found, trying meter number search...');
-
-      customerData = await reportsService.executeReport('customer_search_by_meter', {
-        meterNumber: searchValue
+    // If billingOnly mode, we assume searchValue is the customer ID
+    if (!isBillingOnly) {
+      // 1. Try to find customer by ID first (fast path - dedicated query)
+      let customerData = await reportsService.executeReport('customer_details_search', {
+        searchValue
       });
 
-      if (customerData && customerData.length > 0) {
-        console.log('[Reports Controller] Found customer via meter number');
+      // 2. If not found, try meter number search (optimized single query)
+      if (!customerData || customerData.length === 0) {
+        console.log('[Reports Controller] Customer ID not found, trying meter number search...');
+
+        customerData = await reportsService.executeReport('customer_search_by_meter', {
+          meterNumber: searchValue
+        });
+
+        if (customerData && customerData.length > 0) {
+          console.log('[Reports Controller] Found customer via meter number');
+        }
       }
+
+      // 3. If still not found, return 404
+      if (!customerData || customerData.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Customer not found'
+        });
+      }
+
+      customer = customerData[0];
+      saId = customer.SA_ID;
+      custId = customer.CUSTOMER_ID;
     }
 
-    // 3. If still not found, return 404
-    if (!customerData || customerData.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Customer not found'
-      });
-    }
-
-    const customer = customerData[0];
-    const saId = customer.SA_ID;
-    const custId = customer.CUSTOMER_ID;
-
-    // 2. Get billing data
+    // Get billing data
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
     // Default: Current month daily + Last 12 months monthly
     let dailyStartDate = null;
-    let monthlyStartDate = null;
 
     if (!fetchAll || fetchAll === 'false') {
       // Current month daily
       dailyStartDate = new Date(currentYear, currentMonth, 1);
-      // Last 12 months
-      monthlyStartDate = new Date(currentYear, currentMonth - 11, 1);
     }
 
     const billingParams = {
@@ -772,45 +786,80 @@ const getCustomerDetails = async (req, res) => {
       endDate: endDate || null
     };
 
+    console.log('[Reports Controller] Fetching billing data with params:', billingParams);
     const billingData = await reportsService.executeReport('customer_billing_details', billingParams, { maxRows: 0 });
 
-    // Add meter number from billing data if available
-    if (billingData && billingData.length > 0 && billingData[0].MSN) {
-      customer.METER_NO = billingData[0].MSN;
+    // For full search (not billingOnly), add meter number and status
+    if (!isBillingOnly && customer) {
+      if (billingData && billingData.length > 0 && billingData[0].MSN) {
+        customer.METER_NO = billingData[0].MSN;
 
-      // Get meter status
-      try {
-        const meterStatusData = await reportsService.executeReport('meter_status_lookup', {
-          meterNumber: billingData[0].MSN
-        });
-        if (meterStatusData && meterStatusData.length > 0) {
-          customer.METER_STATUS = meterStatusData[0].METER_STATUS || 'Unknown';
-        } else {
+        // Get meter status
+        try {
+          const meterStatusData = await reportsService.executeReport('meter_status_lookup', {
+            meterNumber: billingData[0].MSN
+          });
+          if (meterStatusData && meterStatusData.length > 0) {
+            customer.METER_STATUS = meterStatusData[0].METER_STATUS || 'Unknown';
+          } else {
+            customer.METER_STATUS = 'Unknown';
+          }
+        } catch (err) {
+          console.error('[Reports Controller] Error fetching meter status:', err);
           customer.METER_STATUS = 'Unknown';
         }
-      } catch (err) {
-        console.error('[Reports Controller] Error fetching meter status:', err);
-        customer.METER_STATUS = 'Unknown';
+      } else {
+        customer.METER_STATUS = 'N/A';
       }
-    } else {
-      customer.METER_STATUS = 'N/A';
+
+      // Get SA_ID from billing data if not available
+      if (!saId && billingData && billingData.length > 0) {
+        // Try to get saId from customer search
+        try {
+          const saData = await reportsService.executeReport('customer_details_search', { searchValue: custId });
+          if (saData && saData.length > 0) {
+            saId = saData[0].SA_ID;
+          }
+        } catch (err) {
+          console.error('[Reports Controller] Error fetching SA_ID:', err);
+        }
+      }
+
+      // Get recharge history (only for full search)
+      if (saId) {
+        rechargeHistory = await reportsService.executeReport('customer_recharge_history', { saId });
+      }
     }
 
-    // 3. Get recharge history
-    const rechargeHistory = await reportsService.executeReport('customer_recharge_history', {
-      saId
-    });
+    // Get real-time balance
+    let realtimeBalance = 0;
+    if (saId || (!isBillingOnly && customer?.SA_ID)) {
+      const balanceSaId = saId || customer?.SA_ID;
+      try {
+        const balanceData = await reportsService.executeReport('customer_realtime_balance', {
+          saId: balanceSaId
+        });
+        if (balanceData && balanceData.length > 0) {
+          // Negate because positive TOT_AMT means customer owes money (due)
+          realtimeBalance = Math.round(parseFloat(balanceData[0].CURRENT_BALANCE || 0) * -1 * 100) / 100;
+        }
+      } catch (err) {
+        console.error('[Reports Controller] Error fetching real-time balance:', err);
+      }
+    }
 
-    // 4. Aggregate data
+    // Aggregate data
     const monthlyData = aggregateMonthlyBilling(billingData);
     const analytics = calculateBillingAnalytics(billingData, monthlyData);
 
-    res.json({
+    // Override with real-time balance
+    analytics.currentBalance = realtimeBalance;
+
+    // Build response based on mode
+    const response = {
       success: true,
-      customer,
       dailyBilling: billingData,
       monthlyBilling: monthlyData,
-      rechargeHistory,
       analytics,
       counts: {
         dailyRecords: billingData.length,
@@ -818,13 +867,243 @@ const getCustomerDetails = async (req, res) => {
         rechargeRecords: rechargeHistory.length
       },
       timestamp: new Date().toISOString()
-    });
+    };
+
+    // Add customer and recharge history only for full search
+    if (!isBillingOnly) {
+      response.customer = customer;
+      response.rechargeHistory = rechargeHistory;
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('[Reports Controller] Error in getCustomerDetails:', error);
 
     res.status(500).json({
       success: false,
       message: 'Failed to fetch customer details',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Progressive Loading: Get Customer Info Only (FAST)
+ * Returns basic customer information without billing data
+ */
+const getCustomerInfo = async (req, res) => {
+  try {
+    const { searchValue } = req.query;
+
+    if (!searchValue) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search value (Customer ID or Meter Number) is required'
+      });
+    }
+
+    console.log('[Reports Controller] Fetching customer info for:', searchValue);
+
+    // Try customer ID first
+    let customerData = await reportsService.executeReport('customer_details_search', { searchValue });
+
+    // If not found, try meter number
+    if (!customerData || customerData.length === 0) {
+      console.log('[Reports Controller] Trying meter number search...');
+      customerData = await reportsService.executeReport('customer_search_by_meter', { meterNumber: searchValue });
+    }
+
+    if (!customerData || customerData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    const customer = customerData[0];
+    console.log('[Reports Controller] Found customer:', customer.CUSTOMER_ID, 'Meter:', customer.METER_NO);
+
+    // Get meter status if we have meter number
+    if (customer.METER_NO) {
+      try {
+        const meterStatusData = await reportsService.executeReport('meter_status_lookup', {
+          meterNumber: customer.METER_NO
+        });
+        if (meterStatusData && meterStatusData.length > 0) {
+          customer.METER_STATUS = meterStatusData[0].METER_STATUS || 'Unknown';
+        } else {
+          customer.METER_STATUS = 'Unknown';
+        }
+      } catch (err) {
+        console.error('[Reports Controller] Error fetching meter status:', err.message);
+        customer.METER_STATUS = 'Unknown';
+      }
+    } else {
+      customer.METER_STATUS = 'No Meter';
+    }
+
+    res.json({
+      success: true,
+      customer,
+      saId: customer.SA_ID
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getCustomerInfo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer info',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Progressive Loading: Get Customer Balance Only (FAST)
+ * Returns real-time balance from CI_FT
+ */
+const getCustomerBalance = async (req, res) => {
+  try {
+    const { saId } = req.query;
+
+    if (!saId) {
+      return res.status(400).json({
+        success: false,
+        message: 'SA ID is required'
+      });
+    }
+
+    console.log('[Reports Controller] Fetching balance for SA_ID:', saId);
+
+    const balanceData = await reportsService.executeReport('customer_realtime_balance', { saId });
+
+    let balance = 0;
+    if (balanceData && balanceData.length > 0) {
+      // Negate because positive TOT_AMT means customer owes money (due)
+      balance = Math.round(parseFloat(balanceData[0].CURRENT_BALANCE || 0) * -1 * 100) / 100;
+    }
+
+    res.json({
+      success: true,
+      balance
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getCustomerBalance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch balance',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Progressive Loading: Get Customer Billing Data
+ * Returns daily billing, monthly aggregation, and analytics
+ *
+ * Default: Last 3 months (shows meaningful data in charts)
+ * All Data: Last 12 months (reasonable compromise for speed)
+ */
+const getCustomerBilling = async (req, res) => {
+  try {
+    const { custId, fetchAll } = req.query;
+
+    if (!custId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Customer ID is required'
+      });
+    }
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let startDate = null;
+    if (fetchAll === 'true') {
+      // All Data = Last 12 months (reasonable limit for performance)
+      startDate = formatDateForOracle(new Date(currentYear - 1, currentMonth, 1));
+      console.log('[Reports Controller] Fetching billing data for:', custId, '(last 12 months)');
+    } else {
+      // Default = Last 3 months (shows meaningful charts)
+      startDate = formatDateForOracle(new Date(currentYear, currentMonth - 2, 1));
+      console.log('[Reports Controller] Fetching billing data for:', custId, '(last 3 months)');
+    }
+
+    const billingParams = {
+      custId,
+      startDate,
+      endDate: null
+    };
+
+    // Fetch daily billing and monthly aggregated data in parallel
+    const [billingData, monthlyData] = await Promise.all([
+      reportsService.executeReport('customer_billing_details', billingParams, { maxRows: 0 }),
+      reportsService.executeReport('customer_monthly_billing', billingParams, { maxRows: 0 })
+    ]);
+
+    // Transform monthly data for frontend compatibility
+    const transformedMonthlyData = monthlyData.map(row => ({
+      MONTH: row.MONTH_KEY,
+      YEAR: row.YEAR,
+      MONTH_NAME: row.MONTH_NAME ? row.MONTH_NAME.trim() : '',
+      TOTAL_CHARGES: parseFloat(row.TOTAL_CHARGES || 0),
+      TOTAL_CONSUMPTION: parseFloat(row.TOTAL_CONSUMPTION || 0),
+      BILLING_DAYS: parseInt(row.BILLING_DAYS || 0),
+      START_DATE: row.MONTH_START_DATE,
+      END_DATE: row.MONTH_END_DATE,
+      PAYOFF_BAL: parseFloat(row.LATEST_PAYOFF_BAL || 0)
+    }));
+
+    const analytics = calculateBillingAnalytics(billingData, transformedMonthlyData);
+
+    res.json({
+      success: true,
+      dailyBilling: billingData,
+      monthlyBilling: transformedMonthlyData,
+      analytics,
+      counts: {
+        dailyRecords: billingData.length,
+        monthlyRecords: transformedMonthlyData.length
+      }
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getCustomerBilling:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch billing data',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Progressive Loading: Get Customer Recharge History
+ * Returns payment/recharge history
+ */
+const getCustomerRecharge = async (req, res) => {
+  try {
+    const { saId } = req.query;
+
+    if (!saId) {
+      return res.status(400).json({
+        success: false,
+        message: 'SA ID is required'
+      });
+    }
+
+    console.log('[Reports Controller] Fetching recharge history for SA_ID:', saId);
+
+    const rechargeHistory = await reportsService.executeReport('customer_recharge_history', { saId });
+
+    res.json({
+      success: true,
+      rechargeHistory: rechargeHistory || []
+    });
+  } catch (error) {
+    console.error('[Reports Controller] Error in getCustomerRecharge:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recharge history',
       error: error.message
     });
   }
@@ -1163,7 +1442,7 @@ function formatDateForOracle(date) {
 module.exports = {
   getRCDCAnalyticsSummary,
   getMeterWiseCommands,
-  getMeterWiseCommandsPaginated, // NEW: Optimized paginated endpoint
+  getMeterWiseCommandsPaginated,
   getMeterWiseCommandsByNocs,
   getDailyConnectDisconnectCount,
   getRCDCNocsAggregated,
@@ -1175,11 +1454,17 @@ module.exports = {
   getBankWiseCollection,
   getBankReconciliationData,
   getNocsCollectionSummary,
-  getCustomerBillingDetails, // Customer billing details
-  getCustomerDetails, // NEW: Customer details page
-  getNocsBalanceSummary, // NEW: NOCS balance summary (hourly cached)
-  getNocsCustomerPayoff, // DEPRECATED: Customer payoff balance by NOCS (use paginated version)
-  getNocsCustomerPayoffPaginated, // NEW: Customer payoff balance by NOCS (paginated)
-  getNocsCustomerPayoffSummary, // NEW: Customer payoff summary statistics only
-  executeGenericReport // NEW: Generic report execution endpoint
+  getCustomerBillingDetails,
+  getCustomerDetails,
+  // Progressive Loading Endpoints for Customer Details Page
+  getCustomerInfo,
+  getCustomerBalance,
+  getCustomerBilling,
+  getCustomerRecharge,
+  // Cached endpoints
+  getNocsBalanceSummary,
+  getNocsCustomerPayoff,
+  getNocsCustomerPayoffPaginated,
+  getNocsCustomerPayoffSummary,
+  executeGenericReport
 };

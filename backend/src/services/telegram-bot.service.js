@@ -195,7 +195,7 @@ I'll provide you with your account details and billing information.`;
   }
 
   /**
-   * Fetch customer data (same as customer-details page)
+   * Fetch customer data (optimized - same fixes as customer-details page)
    */
   async fetchCustomerData(searchValue) {
     try {
@@ -252,37 +252,61 @@ I'll provide you with your account details and billing information.`;
 
       logger.info(`[Telegram Bot] Fetching billing and recharge data for custId: ${custId}, saId: ${saId}`);
 
-      // Fetch all data (billing, recharge, etc.) with maxRows: 0 for unlimited
-      const [billingData, rechargeHistory] = await Promise.all([
-        reportsService.executeReport('customer_billing_details', {
+      // Calculate date range - last 12 months for faster queries
+      const now = new Date();
+      const startDate = this.formatDateForOracle(new Date(now.getFullYear() - 1, now.getMonth(), 1));
+
+      // Fetch all data in parallel with date limits for speed
+      const [monthlyBillingData, rechargeHistory, balanceData] = await Promise.all([
+        // Use SQL aggregation for accurate monthly data
+        reportsService.executeReport('customer_monthly_billing', {
           custId,
-          startDate: null,
+          startDate,
           endDate: null
         }, { maxRows: 0 }),
-        reportsService.executeReport('customer_recharge_history', { saId }, { maxRows: 0 })
+        // Recharge history
+        reportsService.executeReport('customer_recharge_history', { saId }, { maxRows: 0 }),
+        // Real-time balance
+        reportsService.executeReport('customer_realtime_balance', { saId })
       ]);
 
-      logger.info(`[Telegram Bot] Fetched ${billingData?.length || 0} billing records and ${rechargeHistory?.length || 0} recharge records`);
+      logger.info(`[Telegram Bot] Fetched ${monthlyBillingData?.length || 0} monthly billing records and ${rechargeHistory?.length || 0} recharge records`);
 
-      // Add meter number from billing data (first record)
-      if (billingData && billingData.length > 0 && billingData[0].MSN) {
-        customer.METER_NO = billingData[0].MSN;
+      // Transform monthly billing data for compatibility
+      const monthlyBilling = (monthlyBillingData || []).map(row => ({
+        MONTH: row.MONTH_KEY,
+        YEAR: row.YEAR,
+        MONTH_NAME: row.MONTH_NAME ? row.MONTH_NAME.trim() : '',
+        TOTAL_CHARGES: parseFloat(row.TOTAL_CHARGES || 0),
+        TOTAL_CONSUMPTION: parseFloat(row.TOTAL_CONSUMPTION || 0),
+        BILLING_DAYS: parseInt(row.BILLING_DAYS || 0),
+        START_DATE: row.MONTH_START_DATE,
+        END_DATE: row.MONTH_END_DATE,
+        PAYOFF_BAL: parseFloat(row.LATEST_PAYOFF_BAL || 0)
+      }));
+
+      // Get meter number from monthly billing or customer data
+      if (monthlyBillingData && monthlyBillingData.length > 0 && monthlyBillingData[0].MSN) {
+        customer.METER_NO = monthlyBillingData[0].MSN;
         logger.info(`[Telegram Bot] Meter number found: ${customer.METER_NO}`);
-      } else {
-        logger.warn(`[Telegram Bot] No meter number found in billing data`);
+      } else if (!customer.METER_NO) {
+        logger.warn(`[Telegram Bot] No meter number found`);
       }
 
-      // Aggregate monthly billing
-      const monthlyBilling = this.aggregateMonthlyBilling(billingData || []);
+      // Calculate real-time balance
+      let currentBalance = 0;
+      if (balanceData && balanceData.length > 0) {
+        // Negate because positive TOT_AMT means customer owes money (due)
+        currentBalance = Math.round(parseFloat(balanceData[0].CURRENT_BALANCE || 0) * -1 * 100) / 100;
+      }
 
-      // Calculate analytics
-      const analytics = this.calculateAnalytics(billingData || [], rechargeHistory || []);
+      // Calculate analytics with real-time balance
+      const analytics = this.calculateAnalyticsFromMonthly(monthlyBilling, rechargeHistory || [], currentBalance);
 
-      logger.info(`[Telegram Bot] Data aggregation completed. Monthly records: ${monthlyBilling?.length || 0}`);
+      logger.info(`[Telegram Bot] Data processing completed. Monthly records: ${monthlyBilling?.length || 0}, Balance: ${currentBalance}`);
 
       return {
         customer,
-        dailyBilling: billingData || [],
         monthlyBilling: monthlyBilling || [],
         rechargeHistory: rechargeHistory || [],
         analytics
@@ -291,6 +315,17 @@ I'll provide you with your account details and billing information.`;
       logger.error('[Telegram Bot] Error in fetchCustomerData:', error);
       throw error;
     }
+  }
+
+  /**
+   * Format date for Oracle (DD-MON-YYYY)
+   */
+  formatDateForOracle(date) {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
   }
 
   /**
@@ -638,61 +673,18 @@ ${analytics.currentBalance < 0 ? '🔴 *Status:* Due Amount' : analytics.current
   }
 
   /**
-   * Aggregate monthly billing from daily billing
+   * Calculate analytics from monthly billing data (optimized)
+   * Uses pre-aggregated monthly data from SQL query
    */
-  aggregateMonthlyBilling(dailyData) {
-    const monthlyMap = new Map();
-
-    dailyData.forEach((record) => {
-      const startDate = new Date(record.START_DT);
-      const monthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-
-      if (!monthlyMap.has(monthKey)) {
-        monthlyMap.set(monthKey, {
-          MONTH: monthKey,
-          YEAR: startDate.getFullYear(),
-          MONTH_NAME: startDate.toLocaleString('en-US', { month: 'long' }),
-          TOTAL_CHARGES: 0,
-          TOTAL_CONSUMPTION: 0,
-          BILLING_DAYS: 0
-        });
-      }
-
-      const monthData = monthlyMap.get(monthKey);
-      monthData.TOTAL_CHARGES += parseFloat(record.DAILY_CHARGES || 0);
-      monthData.TOTAL_CONSUMPTION += parseFloat(record.QUANTITY || 0);
-      monthData.BILLING_DAYS += 1;
-    });
-
-    return Array.from(monthlyMap.values()).sort((a, b) => a.MONTH.localeCompare(b.MONTH));
-  }
-
-  /**
-   * Calculate analytics
-   */
-  calculateAnalytics(billingData, rechargeHistory) {
-    if (!billingData || billingData.length === 0) {
-      return {
-        totalConsumption: 0,
-        totalCharges: 0,
-        totalRecharge: 0,
-        currentBalance: 0
-      };
-    }
-
-    const totalConsumption = billingData.reduce((sum, b) => sum + parseFloat(b.QUANTITY || 0), 0);
-    const totalCharges = billingData.reduce((sum, b) => sum + parseFloat(b.DAILY_CHARGES || 0), 0);
+  calculateAnalyticsFromMonthly(monthlyBilling, rechargeHistory, currentBalance) {
+    const totalConsumption = monthlyBilling.reduce((sum, b) => sum + (b.TOTAL_CONSUMPTION || 0), 0);
+    const totalCharges = monthlyBilling.reduce((sum, b) => sum + (b.TOTAL_CHARGES || 0), 0);
     const totalRecharge = rechargeHistory.reduce(
       (sum, r) => sum + parseFloat(r.RECHARGE_AMOUNT || 0),
       0
     );
 
-    // Get current balance from the LATEST billing record (PAYOFF_BAL field)
-    // Multiply by -1 to get the correct sign (negative = due, positive = credit)
-    const payoffBal = billingData[billingData.length - 1]?.PAYOFF_BAL || 0;
-    const currentBalance = Math.round(parseFloat(payoffBal) * -1 * 100) / 100;
-
-    logger.info(`[Telegram Bot] Balance calculation: PAYOFF_BAL=${payoffBal}, currentBalance=${currentBalance}`);
+    logger.info(`[Telegram Bot] Analytics: consumption=${totalConsumption}, charges=${totalCharges}, balance=${currentBalance}`);
 
     return {
       totalConsumption: Math.round(totalConsumption * 100) / 100,
