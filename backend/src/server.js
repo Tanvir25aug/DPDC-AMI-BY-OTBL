@@ -18,7 +18,7 @@ const teamsService = require('./services/teams.service');
 const teamsReportsScheduler = require('./schedulers/teams-reports.scheduler');
 const teamsWebhooks = require('./config/teams-webhooks');
 const telegramBotService = require('./services/telegram-bot.service');
-// const billStopScheduler = require('./jobs/scheduler'); // DISABLED - scheduler not implemented yet
+const billStopScheduler = require('./jobs/scheduler');
 
 const app = express();
 // Trust only the first proxy (Nginx) for X-Forwarded-For headers
@@ -132,10 +132,9 @@ async function startServer() {
     nocsBalanceScheduler.startScheduler();
     logger.info('✅ NOCS Balance Scheduler started (runs hourly)');
 
-    // Start Bill Stop Batch Job Scheduler (runs daily at 2 AM)
-    // DISABLED - Use PM2 cron or system cron for bill stop batch job
-    // billStopScheduler.initializeScheduler();
-    // logger.info('✅ Bill Stop Batch Job Scheduler started (runs daily at 2 AM)');
+    // Start Bill Stop Batch Job Scheduler (runs daily at 2 AM Asia/Dhaka)
+    billStopScheduler.initializeScheduler();
+    logger.info('✅ Bill Stop Batch Job Scheduler started (runs daily at 2 AM)');
 
     // Start Batch Monitoring Scheduler (only in production)
     if (process.env.NODE_ENV === 'production') {
