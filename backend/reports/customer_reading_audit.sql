@@ -1,6 +1,7 @@
 -- Customer Meter Reading Audit
--- Auto-detects: meter number, install date, meter type (Residential vs Commercial/TOD)
--- Generates expected monthly reads from install date to today, compares with actual reads
+-- Determines reading types from customer tariff (ci_sa.sched_id):
+--   LT-A  → Residential → kWh Daily only
+--   Other → Commercial  → kWh Daily + kWh Daily TOD1 + kWh Daily TOD2
 -- Parameter: :search_value (Customer ID or Meter Number)
 
 WITH meter_info AS (
@@ -27,6 +28,35 @@ WITH meter_info AS (
       AND ROWNUM = 1
 ),
 
+-- Get customer tariff from ci_sa.sched_id
+customer_tariff AS (
+    SELECT UPPER(TRIM(sa.sched_id)) AS tariff_code
+    FROM meter_info mi
+    JOIN ci_sp_char sp_char
+        ON  sp_char.adhoc_char_val = mi.customer_id
+        AND sp_char.char_type_cd   = 'CM_LEGCY'
+    JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = sp_char.sp_id
+    JOIN ci_sa    sa    ON sa.sa_id     = sa_sp.sa_id
+                       AND sa.sa_type_cd = 'PPD'
+    WHERE ROWNUM = 1
+),
+
+-- Reading types based on tariff:
+--   LT-A (Residential) → kWh Daily only
+--   All others (Commercial) → kWh Daily + TOD1 + TOD2
+meter_reading_types AS (
+    SELECT reading_type
+    FROM (
+        SELECT 'kWh Daily'      AS reading_type FROM dual
+        UNION ALL
+        SELECT 'kWh Daily TOD1' FROM dual
+        UNION ALL
+        SELECT 'kWh Daily TOD2' FROM dual
+    )
+    WHERE reading_type = 'kWh Daily'
+       OR (SELECT tariff_code FROM customer_tariff) <> 'LT-A'
+),
+
 last_bill AS (
     SELECT
         s3.srch_char_val AS customer_id,
@@ -41,42 +71,22 @@ last_bill AS (
     GROUP BY s3.srch_char_val
 ),
 
--- Auto-detect reading types that actually exist for this meter
-meter_reading_types AS (
-    SELECT DISTINCT mci.ID_VALUE AS reading_type
-    FROM d1_dvc_identifier di
-    JOIN d1_dvc_cfg               dc  ON di.D1_DEVICE_ID    = dc.D1_DEVICE_ID
-    JOIN d1_measr_comp            mc  ON dc.DEVICE_CONFIG_ID = mc.DEVICE_CONFIG_ID
-    JOIN d1_measr_comp_identifier mci ON mc.MEASR_COMP_ID   = mci.MEASR_COMP_ID
-    WHERE di.DVC_ID_TYPE_FLG = 'D1SN'
-      AND di.ID_VALUE IN (SELECT meter_no FROM meter_info)
-      AND mci.ID_VALUE IN (
-          'kWh Daily',
-          'kWh Daily TOD1',
-          'kWh Daily TOD2',
-          'kWh Daily TOD3',
-          'kWh Daily TOD4'
-      )
-),
-
--- Generate one row per check date (install date + first of every month up to now)
+-- Generate one row per check date (install date + 1st of every month up to now)
 check_dates AS (
-    -- Initial read row (actual install date)
     SELECT
         m.customer_id,
         m.meter_no,
         m.install_date,
-        COALESCE(l.last_bill_dt, m.install_date)                            AS last_bill_dt,
+        COALESCE(l.last_bill_dt, m.install_date)                 AS last_bill_dt,
         CASE WHEN l.last_bill_dt IS NULL THEN 'Never Billed'
-             ELSE TO_CHAR(l.last_bill_dt, 'DD-MON-YYYY') END               AS bill_status,
-        m.install_date  AS check_date,
-        'Initial Read'  AS date_type
+             ELSE TO_CHAR(l.last_bill_dt, 'DD-MON-YYYY') END     AS bill_status,
+        m.install_date AS check_date,
+        'Initial Read' AS date_type
     FROM meter_info m
     LEFT JOIN last_bill l ON l.customer_id = m.customer_id
 
     UNION ALL
 
-    -- Monthly check rows (1st of each subsequent month)
     SELECT
         m.customer_id,
         m.meter_no,
@@ -85,7 +95,7 @@ check_dates AS (
         CASE WHEN l.last_bill_dt IS NULL THEN 'Never Billed'
              ELSE TO_CHAR(l.last_bill_dt, 'DD-MON-YYYY') END,
         ADD_MONTHS(TRUNC(m.install_date, 'MM'), LEVEL) AS check_date,
-        'Month Start'   AS date_type
+        'Month Start' AS date_type
     FROM meter_info m
     LEFT JOIN last_bill l ON l.customer_id = m.customer_id
     CONNECT BY
@@ -95,7 +105,6 @@ check_dates AS (
         AND PRIOR DBMS_RANDOM.VALUE IS NOT NULL
 ),
 
--- Cross join check dates with the meter's actual reading types
 expected_reads AS (
     SELECT
         cd.customer_id,
@@ -110,7 +119,6 @@ expected_reads AS (
     CROSS JOIN meter_reading_types rt
 ),
 
--- Pull actual readings from Oracle AMI tables
 actual_reads AS (
     SELECT
         di.ID_VALUE           AS meter_no,
@@ -124,21 +132,24 @@ actual_reads AS (
     JOIN d1_measr_comp_identifier mci ON mc.MEASR_COMP_ID   = mci.MEASR_COMP_ID
     JOIN d1_msrmt                 ms  ON ms.MEASR_COMP_ID   = mc.MEASR_COMP_ID
     WHERE di.DVC_ID_TYPE_FLG = 'D1SN'
-      AND di.ID_VALUE     IN (SELECT meter_no   FROM meter_info)
-      AND mci.ID_VALUE    IN (SELECT reading_type FROM meter_reading_types)
+      AND di.ID_VALUE  IN (SELECT meter_no     FROM meter_info)
+      AND mci.ID_VALUE IN (SELECT reading_type FROM meter_reading_types)
 )
 
 SELECT
     e.customer_id,
     e.meter_no,
-    TO_CHAR(e.install_date,       'DD-MON-YYYY')       AS install_date,
-    TO_CHAR(e.last_bill_dt,       'DD-MON-YYYY')       AS last_bill_dt,
+    (SELECT tariff_code FROM customer_tariff)        AS tariff_code,
+    CASE WHEN (SELECT tariff_code FROM customer_tariff) = 'LT-A'
+         THEN 'Residential' ELSE 'Commercial' END    AS meter_type,
+    TO_CHAR(e.install_date,     'DD-MON-YYYY')       AS install_date,
+    TO_CHAR(e.last_bill_dt,     'DD-MON-YYYY')       AS last_bill_dt,
     e.bill_status,
-    TO_CHAR(e.check_date,         'DD-MON-YYYY')       AS expected_date,
+    TO_CHAR(e.check_date,       'DD-MON-YYYY')       AS expected_date,
     e.date_type,
     e.reading_type,
     a.READING_VAL,
-    TO_CHAR(a.LAST_UPDATE_DTTM,   'DD-MON-YYYY HH24:MI') AS last_updated,
+    TO_CHAR(a.LAST_UPDATE_DTTM, 'DD-MON-YYYY HH24:MI') AS last_updated,
     CASE WHEN a.READING_VAL IS NULL THEN 'Missing' ELSE 'OK' END AS status
 FROM expected_reads e
 LEFT JOIN actual_reads a

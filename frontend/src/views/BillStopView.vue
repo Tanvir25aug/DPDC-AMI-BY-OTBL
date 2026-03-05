@@ -180,6 +180,9 @@
       <div class="audit-header">
         <h3>Meter Reading Audit</h3>
         <div class="audit-meta" v-if="auditData">
+          <span :class="['meta-badge', auditData.meter_type === 'Residential' ? 'residential' : 'commercial']">
+            {{ auditData.tariff_code }} — {{ auditData.meter_type }}
+          </span>
           <span class="meta-badge install">
             Installed: {{ auditData.install_date }}
           </span>
@@ -1056,9 +1059,11 @@ const formatDate = (dateStr) => {
   font-weight: 600;
 }
 
-.meta-badge.install     { background: #e8f4fd; color: #2980b9; }
-.meta-badge.billed      { background: #d4edda; color: #155724; }
-.meta-badge.never-billed { background: #fff3cd; color: #856404; }
+.meta-badge.install       { background: #e8f4fd; color: #2980b9; }
+.meta-badge.billed        { background: #d4edda; color: #155724; }
+.meta-badge.never-billed  { background: #fff3cd; color: #856404; }
+.meta-badge.residential   { background: #e8f5e9; color: #2e7d32; font-weight: 700; }
+.meta-badge.commercial    { background: #fce4ec; color: #880e4f; font-weight: 700; }
 
 /* Loading spinner */
 .audit-loading {
