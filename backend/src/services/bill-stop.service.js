@@ -1,162 +1,103 @@
 const oracledb = require('oracledb');
 const { getOracleConnection } = require('../config/oracle');
-const { BillStopAnalysis } = require('../models');
+const pgPool = require('../config/postgresDB');
 const logger = require('../config/logger');
 const fs = require('fs').promises;
 const path = require('path');
 
 /**
- * Run Bill Stop Analysis
- * Analyzes customer billing status (active vs stopped) and stores in PostgreSQL
+ * Read summary totals from the bill_stop_summary PostgreSQL table
+ * (populated nightly by the batch job - no Oracle query needed)
  */
-const runBillStopAnalysis = async (username = 'system') => {
-  const startTime = Date.now();
-  let connection;
-  let queryDuration = 0;
+const readSummaryFromBatch = async () => {
+  // Get latest batch date
+  const dateResult = await pgPool.query(
+    `SELECT batch_date FROM bill_stop_summary ORDER BY batch_date DESC LIMIT 1`
+  );
 
-  try {
-    logger.info('[Bill Stop Service] Starting bill stop analysis');
-
-    // Get current month start date
-    const now = new Date();
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const analysisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-    logger.info(`[Bill Stop Service] Analysis month: ${analysisMonth}, Current month start: ${currentMonthStart.toISOString()}`);
-
-    // Read SQL query from file
-    const sqlFilePath = path.join(__dirname, '../../reports/customer_last_bill_dates.sql');
-    let sqlQuery = await fs.readFile(sqlFilePath, 'utf8');
-
-    // Clean SQL: remove comments and extra whitespace
-    sqlQuery = sqlQuery
-      .split('\n')
-      .filter(line => !line.trim().startsWith('--')) // Remove comment lines
-      .join('\n')
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .trim()
-      .replace(/;$/, ''); // Remove trailing semicolon (Oracle execute() doesn't want it)
-
-    logger.info(`[Bill Stop Service] SQL query: ${sqlQuery.substring(0, 200)}...`);
-
-    // Connect to Oracle and execute query
-    logger.info('[Bill Stop Service] Connecting to Oracle database');
-    connection = await getOracleConnection();
-
-    const queryStartTime = Date.now();
-    const result = await connection.execute(sqlQuery, [], {
-      outFormat: oracledb.OUT_FORMAT_OBJECT,
-      fetchArraySize: 10000 // Optimize for large result sets
-    });
-    queryDuration = Date.now() - queryStartTime;
-
-    logger.info(`[Bill Stop Service] Oracle query completed in ${queryDuration}ms, retrieved ${result.rows.length} customers`);
-
-    // Analyze billing status
-    const processingStartTime = Date.now();
-    let activeBillingCount = 0;
-    let stoppedBillingCount = 0;
-
-    for (const row of result.rows) {
-      const lastBillDate = row.LAST_BILL_DATE;
-
-      if (!lastBillDate) {
-        // No billing data - consider as stopped
-        stoppedBillingCount++;
-        continue;
-      }
-
-      // Compare last bill date with current month start
-      // Note: lastBillDate is the END of billing period (end_dt from ci_bseg)
-      // A bill with end_dt = 01-JAN is a December bill (covers up to Jan 1)
-      // A bill with end_dt > 01-JAN (e.g., 02-JAN) covers January usage
-      const lastBillDateObj = new Date(lastBillDate);
-
-      if (lastBillDateObj > currentMonthStart) {
-        // Customer was billed in current month - active
-        // (bill end date is AFTER the 1st of current month)
-        activeBillingCount++;
-      } else {
-        // Customer was NOT billed in current month - stopped
-        // (bill end date is ON or BEFORE the 1st of current month)
-        stoppedBillingCount++;
-      }
-    }
-
-    const processingDuration = Date.now() - processingStartTime;
-
-    logger.info(`[Bill Stop Service] Analysis complete - Active: ${activeBillingCount}, Stopped: ${stoppedBillingCount}`);
-
-    // Store results in PostgreSQL
-    const analysisRecord = await BillStopAnalysis.create({
-      total_customers: result.rows.length,
-      active_billing_count: activeBillingCount,
-      stopped_billing_count: stoppedBillingCount,
-      analysis_month: analysisMonth,
-      current_month_start: currentMonthStart,
-      query_duration: queryDuration,
-      processing_duration: processingDuration,
-      performed_by: username
-    });
-
-    const totalDuration = Date.now() - startTime;
-
-    logger.info(`[Bill Stop Service] Analysis saved to database (ID: ${analysisRecord.id}) - Total duration: ${totalDuration}ms`);
-
-    return {
-      success: true,
-      data: {
-        id: analysisRecord.id,
-        total_customers: analysisRecord.total_customers,
-        active_billing_count: analysisRecord.active_billing_count,
-        stopped_billing_count: analysisRecord.stopped_billing_count,
-        analysis_month: analysisRecord.analysis_month,
-        current_month_start: analysisRecord.current_month_start,
-        query_duration: analysisRecord.query_duration,
-        processing_duration: analysisRecord.processing_duration,
-        total_duration: totalDuration,
-        performed_by: analysisRecord.performed_by,
-        created_at: analysisRecord.created_at,
-        updated_at: analysisRecord.updated_at
-      }
-    };
-  } catch (error) {
-    logger.error('[Bill Stop Service] Error running analysis:', error);
-    throw error;
-  } finally {
-    if (connection) {
-      try {
-        await connection.close();
-        logger.info('[Bill Stop Service] Oracle connection closed');
-      } catch (err) {
-        logger.error('[Bill Stop Service] Error closing Oracle connection:', err);
-      }
-    }
+  if (dateResult.rows.length === 0) {
+    return null;
   }
+
+  const latestDate = dateResult.rows[0].batch_date;
+
+  // Aggregate totals across all CRPs for the latest batch date
+  const totalsResult = await pgPool.query(
+    `SELECT
+       SUM(total_cpc_count)      AS total_customers,
+       SUM(active_billing_count) AS active_billing_count,
+       SUM(bill_stop_count)      AS stopped_billing_count
+     FROM bill_stop_summary
+     WHERE batch_date = $1`,
+    [latestDate]
+  );
+
+  const t = totalsResult.rows[0];
+
+  return {
+    total_customers:       parseInt(t.total_customers)       || 0,
+    active_billing_count:  parseInt(t.active_billing_count)  || 0,
+    stopped_billing_count: parseInt(t.stopped_billing_count) || 0,
+    analysis_month:        latestDate,   // YYYY-MM-DD of the batch run
+    created_at:            latestDate,
+    performed_by:          'Nightly Batch Job'
+  };
 };
 
 /**
- * Get latest bill stop analysis
+ * Run Bill Stop Analysis
+ * Reads pre-computed data from the bill_stop_summary PostgreSQL table.
+ * The actual Oracle query runs nightly via the batch job (billStopBatchJob.js).
+ * Calling this from an HTTP request used to cause 504 timeouts because
+ * the Oracle scan takes several minutes - this approach is instant.
  */
-const getLatestAnalysis = async () => {
+const runBillStopAnalysis = async (username = 'system') => {
   try {
-    const latest = await BillStopAnalysis.getLatest();
+    logger.info('[Bill Stop Service] Loading analysis from batch data');
 
-    if (!latest) {
+    const data = await readSummaryFromBatch();
+
+    if (!data) {
       return {
         success: false,
-        message: 'No analysis data available. Please run analysis first.',
+        message: 'No batch data available yet. The nightly batch job has not run.',
         data: null
       };
     }
 
-    const dataAge = await BillStopAnalysis.getDataAge();
+    logger.info(`[Bill Stop Service] Analysis loaded - Total: ${data.total_customers}, Active: ${data.active_billing_count}, Stopped: ${data.stopped_billing_count}`);
 
-    return {
-      success: true,
-      data: latest,
-      age: dataAge
+    return { success: true, data };
+  } catch (error) {
+    logger.error('[Bill Stop Service] Error loading analysis:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get latest bill stop analysis (reads from batch data in PostgreSQL)
+ */
+const getLatestAnalysis = async () => {
+  try {
+    const data = await readSummaryFromBatch();
+
+    if (!data) {
+      return {
+        success: false,
+        message: 'No batch data available yet. The nightly batch job has not run.',
+        data: null
+      };
+    }
+
+    // Calculate data age
+    const ageMs = Date.now() - new Date(data.analysis_month).getTime();
+    const age = {
+      last_updated:  data.analysis_month,
+      age_hours:     Math.floor(ageMs / 3600000),
+      age_days:      Math.floor(ageMs / 86400000)
     };
+
+    return { success: true, data, age };
   } catch (error) {
     logger.error('[Bill Stop Service] Error getting latest analysis:', error);
     throw error;
@@ -164,16 +105,27 @@ const getLatestAnalysis = async () => {
 };
 
 /**
- * Get analysis history
+ * Get analysis history (last N batch dates with aggregated totals)
  */
 const getAnalysisHistory = async (limit = 10) => {
   try {
-    const history = await BillStopAnalysis.getHistory(limit);
+    const result = await pgPool.query(
+      `SELECT
+         batch_date,
+         SUM(total_cpc_count)      AS total_customers,
+         SUM(active_billing_count) AS active_billing_count,
+         SUM(bill_stop_count)      AS stopped_billing_count
+       FROM bill_stop_summary
+       GROUP BY batch_date
+       ORDER BY batch_date DESC
+       LIMIT $1`,
+      [limit]
+    );
 
     return {
       success: true,
-      data: history,
-      count: history.length
+      data: result.rows,
+      count: result.rows.length
     };
   } catch (error) {
     logger.error('[Bill Stop Service] Error getting analysis history:', error);
