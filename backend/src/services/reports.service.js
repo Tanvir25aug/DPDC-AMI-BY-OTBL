@@ -5,6 +5,16 @@ const { executeQuery } = require('../config/oracle');
 const reportsDir = path.join(__dirname, '../../reports');
 
 /**
+ * Get the current Oracle partition name based on today's date.
+ * Format: p{YEAR}{MONTH} e.g. p2026MAR
+ */
+const getCurrentPartition = () => {
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const now = new Date();
+  return `p${now.getFullYear()}${months[now.getMonth()]}`;
+};
+
+/**
  * Execute a report by name
  * @param {string} reportName - Name of the SQL report file (without .sql extension)
  * @param {object} bindParams - Optional bind parameters for the SQL query
@@ -19,8 +29,12 @@ const executeReport = async (reportName, bindParams = {}, options = {}) => {
 
     console.log(`[Reports Service] Executing report: ${reportName}`);
 
+    // Inject dynamic partition (replaces {{PARTITION}} placeholder)
+    const partition = getCurrentPartition();
+    const resolvedSql = sql.replace(/\{\{PARTITION\}\}/gi, partition);
+
     // Remove trailing semicolon (Oracle doesn't like it)
-    const cleanQuery = sql.trim().replace(/;+$/, '');
+    const cleanQuery = resolvedSql.trim().replace(/;+$/, '');
 
     // Execute query with options
     const result = await executeQuery(cleanQuery, bindParams, options);
@@ -56,8 +70,12 @@ const executeReportPaginated = async (reportName, page = 1, limit = 100, bindPar
 
     console.log(`[Reports Service] Executing paginated report: ${reportName} (page ${page}, limit ${limit})`);
 
+    // Inject dynamic partition
+    const partition = getCurrentPartition();
+    const resolvedSql = sql.replace(/\{\{PARTITION\}\}/gi, partition);
+
     // Remove trailing semicolon
-    const cleanQuery = sql.trim().replace(/;+$/, '');
+    const cleanQuery = resolvedSql.trim().replace(/;+$/, '');
 
     // Add pagination parameters
     const params = { ...bindParams, offset, limit };
@@ -94,7 +112,9 @@ const getReportCount = async (countReportName, bindParams = {}) => {
     const reportPath = path.join(reportsDir, `${countReportName}.sql`);
     const sql = await fs.readFile(reportPath, 'utf8');
 
-    const cleanQuery = sql.trim().replace(/;+$/, '');
+    const partition = getCurrentPartition();
+    const resolvedSql = sql.replace(/\{\{PARTITION\}\}/gi, partition);
+    const cleanQuery = resolvedSql.trim().replace(/;+$/, '');
     const result = await executeQuery(cleanQuery, bindParams);
 
     const totalCount = result.rows[0]?.TOTAL_COUNT || 0;
