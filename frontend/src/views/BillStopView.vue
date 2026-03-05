@@ -209,7 +209,7 @@
             <template v-if="result.success">
               <span class="accordion-meter">Meter: {{ result.data.meter_no }}</span>
               <span :class="['meta-badge', result.data.meter_type === 'Residential' ? 'residential' : 'commercial']">
-                {{ result.data.meter_type }}
+                {{ result.data.tariff_code ? result.data.tariff_code + ' \u2014 ' : '' }}{{ result.data.meter_type }}
               </span>
               <span :class="['meta-badge', result.data.bill_status === 'Never Billed' ? 'never-billed' : 'billed']">
                 Last Bill: {{ result.data.bill_status === 'Never Billed' ? 'Never Billed' : result.data.last_bill_dt }}

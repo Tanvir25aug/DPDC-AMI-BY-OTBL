@@ -284,6 +284,7 @@ const getCustomerReadingAudit = async (searchValue) => {
       data: {
         customer_id:  first.CUSTOMER_ID,
         meter_no:     first.METER_NO,
+        tariff_code:  first.TARIFF_CODE,
         meter_type:   first.METER_TYPE,
         install_date: first.INSTALL_DATE,
         last_bill_dt: first.LAST_BILL_DT,

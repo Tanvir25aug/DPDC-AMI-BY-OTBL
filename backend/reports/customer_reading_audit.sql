@@ -28,16 +28,36 @@ WITH meter_info AS (
       AND ROWNUM = 1
 ),
 
--- Detect which kWh Daily reading types this meter actually has configured
-meter_reading_types AS (
-    SELECT DISTINCT mci.ID_VALUE AS reading_type
+customer_tariff AS (
+    SELECT UPPER(TRIM(sc.char_val)) AS tariff_code
     FROM meter_info mi
-    JOIN d1_dvc_identifier di  ON di.ID_VALUE        = mi.meter_no
-                               AND di.DVC_ID_TYPE_FLG = 'D1SN'
-    JOIN d1_dvc_cfg        dc  ON dc.D1_DEVICE_ID    = di.D1_DEVICE_ID
-    JOIN d1_measr_comp     mc  ON mc.DEVICE_CONFIG_ID = dc.DEVICE_CONFIG_ID
-    JOIN d1_measr_comp_identifier mci ON mci.MEASR_COMP_ID = mc.MEASR_COMP_ID
-    WHERE mci.ID_VALUE LIKE 'kWh Daily%'
+    JOIN ci_sp_char  sp ON sp.adhoc_char_val   = mi.customer_id
+                       AND sp.char_type_cd     = 'CM_LEGCY'
+    JOIN ci_sa_sp    ss ON ss.sp_id            = sp.sp_id
+    JOIN ci_sa       sa ON sa.sa_id            = ss.sa_id
+                       AND TRIM(sa.sa_type_cd) IN ('PPD', 'POPD')
+    JOIN ci_sa_char  sc ON sc.sa_id            = sa.sa_id
+                       AND sc.char_type_cd     = 'CM_CUSCA'
+    WHERE sc.effdt = (
+        SELECT MAX(sc2.effdt)
+        FROM   ci_sa_char sc2
+        WHERE  sc2.sa_id        = sc.sa_id
+          AND  sc2.char_type_cd = 'CM_CUSCA'
+    )
+    AND ROWNUM = 1
+),
+
+meter_reading_types AS (
+    SELECT reading_type
+    FROM (
+        SELECT 'kWh Daily'      AS reading_type FROM dual
+        UNION ALL
+        SELECT 'kWh Daily TOD1' FROM dual
+        UNION ALL
+        SELECT 'kWh Daily TOD2' FROM dual
+    )
+    WHERE reading_type = 'kWh Daily'
+       OR (SELECT tariff_code FROM customer_tariff) <> 'LT-A'
 ),
 
 last_bill AS (
