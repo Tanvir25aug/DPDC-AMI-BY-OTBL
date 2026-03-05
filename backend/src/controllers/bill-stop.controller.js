@@ -281,6 +281,40 @@ const getAnalysisHistory = async (req, res) => {
   }
 };
 
+/**
+ * Get meter reading audit for a customer
+ * @route GET /api/bill-stop/reading-audit
+ */
+const getReadingAudit = async (req, res) => {
+  try {
+    const { searchValue } = req.query;
+
+    if (!searchValue) {
+      return res.status(400).json({
+        success: false,
+        message: 'searchValue is required (Customer ID or Meter Number)'
+      });
+    }
+
+    logger.info(`[Bill Stop] Reading audit for: ${searchValue}`);
+
+    const result = await billStopService.getCustomerReadingAudit(searchValue);
+
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    res.json(result);
+  } catch (error) {
+    logger.error('[Bill Stop] Error getting reading audit:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get reading audit',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   searchCustomer,
   getBillStopRecords,
@@ -289,5 +323,6 @@ module.exports = {
   getBillStopHistory,
   runAnalysis,
   getLatestAnalysis,
-  getAnalysisHistory
+  getAnalysisHistory,
+  getReadingAudit
 };

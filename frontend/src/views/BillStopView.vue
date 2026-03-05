@@ -175,6 +175,100 @@
       </div>
     </div>
 
+    <!-- Reading Audit Section (shown after customer search) -->
+    <div v-if="customerData" class="card audit-section">
+      <div class="audit-header">
+        <h3>Meter Reading Audit</h3>
+        <div class="audit-meta" v-if="auditData">
+          <span class="meta-badge install">
+            Installed: {{ auditData.install_date }}
+          </span>
+          <span class="meta-badge" :class="auditData.bill_status === 'Never Billed' ? 'never-billed' : 'billed'">
+            Last Bill: {{ auditData.bill_status === 'Never Billed' ? 'Never Billed (using install date)' : auditData.last_bill_dt }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Audit loading -->
+      <div v-if="auditLoading" class="audit-loading">
+        <div class="spinner"></div>
+        <p>Analysing meter readings from Oracle...</p>
+      </div>
+
+      <!-- Audit error -->
+      <div v-else-if="auditError" class="audit-error">
+        {{ auditError }}
+      </div>
+
+      <!-- Audit results -->
+      <div v-else-if="auditData">
+        <!-- Summary cards -->
+        <div class="audit-summary-grid">
+          <div class="audit-stat total">
+            <div class="audit-stat-value">{{ auditData.summary.total_months }}</div>
+            <div class="audit-stat-label">Total Months</div>
+          </div>
+          <div class="audit-stat ok">
+            <div class="audit-stat-value">{{ auditData.summary.ok_months }}</div>
+            <div class="audit-stat-label">OK Months</div>
+          </div>
+          <div class="audit-stat partial" v-if="auditData.summary.partial_months > 0">
+            <div class="audit-stat-value">{{ auditData.summary.partial_months }}</div>
+            <div class="audit-stat-label">Partial Months</div>
+          </div>
+          <div class="audit-stat missing">
+            <div class="audit-stat-value">{{ auditData.summary.missing_months }}</div>
+            <div class="audit-stat-label">Missing Months</div>
+            <div class="audit-stat-pct">{{ auditData.summary.missing_percentage }}%</div>
+          </div>
+        </div>
+
+        <!-- Monthly detail table -->
+        <div class="audit-table-wrap">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th v-for="rt in readingTypes" :key="rt">{{ rt }}</th>
+                <th>Month Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="month in auditData.months"
+                :key="month.expected_date"
+                :class="monthRowClass(month)"
+              >
+                <td class="date-cell">{{ month.expected_date }}</td>
+                <td class="type-cell">
+                  <span :class="['type-badge', month.date_type === 'Initial Read' ? 'initial' : 'monthly']">
+                    {{ month.date_type }}
+                  </span>
+                </td>
+                <td v-for="rt in readingTypes" :key="rt">
+                  <template v-if="getReading(month, rt)">
+                    <span :class="['status-pill', getReading(month, rt).status.toLowerCase()]">
+                      {{ getReading(month, rt).status }}
+                    </span>
+                    <div v-if="getReading(month, rt).status === 'OK'" class="reading-val">
+                      {{ getReading(month, rt).reading_val }}
+                    </div>
+                  </template>
+                  <span v-else class="status-pill na">N/A</span>
+                </td>
+                <td>
+                  <span :class="['status-pill', monthOverallStatus(month).toLowerCase()]">
+                    {{ monthOverallStatus(month) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Bill Stop Records Table -->
     <div class="card table-section">
       <h3>Recent Bill Stop Records</h3>
@@ -227,7 +321,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '@/services/api';
 
@@ -243,6 +337,11 @@ const records = ref([]);
 // Analysis state
 const analysisData = ref(null);
 const analysisLoading = ref(false);
+
+// Reading audit state
+const auditData = ref(null);
+const auditLoading = ref(false);
+const auditError = ref('');
 
 // Load latest analysis on mount
 onMounted(() => {
@@ -321,7 +420,7 @@ const formatCurrency = (amount) => {
   });
 };
 
-// Search customer
+// Search customer then auto-trigger reading audit
 const handleSearch = async () => {
   if (!searchValue.value.trim()) {
     error.value = 'Please enter a Customer ID or Meter Number';
@@ -331,6 +430,8 @@ const handleSearch = async () => {
   loading.value = true;
   error.value = '';
   customerData.value = null;
+  auditData.value = null;
+  auditError.value = '';
 
   try {
     const response = await api.get('/bill-stop/search', {
@@ -339,6 +440,8 @@ const handleSearch = async () => {
 
     if (response.data.success) {
       customerData.value = response.data.data;
+      // Auto-load reading audit after customer is found
+      fetchReadingAudit(searchValue.value);
     } else {
       error.value = response.data.message || 'Customer not found';
     }
@@ -348,10 +451,69 @@ const handleSearch = async () => {
     } else {
       error.value = 'Failed to fetch customer data. Please try again.';
     }
-    console.error('Error searching customer:', err);
   } finally {
     loading.value = false;
   }
+};
+
+// Fetch meter reading audit from backend
+const fetchReadingAudit = async (value) => {
+  auditLoading.value = true;
+  auditError.value = '';
+  auditData.value = null;
+
+  try {
+    const response = await api.get('/bill-stop/reading-audit', {
+      params: { searchValue: value }
+    });
+
+    if (response.data.success) {
+      auditData.value = response.data.data;
+    } else {
+      auditError.value = response.data.message || 'No meter data found.';
+    }
+  } catch (err) {
+    auditError.value = 'Failed to load reading audit. Please try again.';
+  } finally {
+    auditLoading.value = false;
+  }
+};
+
+// Derive unique reading types from audit months (preserves order)
+const readingTypes = computed(() => {
+  if (!auditData.value?.months?.length) return [];
+  const seen = new Set();
+  const types = [];
+  auditData.value.months.forEach(m => {
+    m.readings.forEach(r => {
+      if (!seen.has(r.reading_type)) {
+        seen.add(r.reading_type);
+        types.push(r.reading_type);
+      }
+    });
+  });
+  return types;
+});
+
+// Get a specific reading from a month row
+const getReading = (month, readingType) => {
+  return month.readings.find(r => r.reading_type === readingType) || null;
+};
+
+// Overall status for a month row
+const monthOverallStatus = (month) => {
+  const all = month.readings;
+  if (all.every(r => r.status === 'OK'))      return 'OK';
+  if (all.every(r => r.status === 'Missing')) return 'Missing';
+  return 'Partial';
+};
+
+// Row CSS class based on month status
+const monthRowClass = (month) => {
+  const s = monthOverallStatus(month);
+  if (s === 'Missing') return 'row-missing';
+  if (s === 'Partial') return 'row-partial';
+  return 'row-ok';
 };
 
 // Load bill stop records
@@ -864,5 +1026,170 @@ const formatDate = (dateStr) => {
 
 .error-message {
   color: #e74c3c;
+}
+
+/* ── Reading Audit Section ───────────────────────────────── */
+.audit-section h3 {
+  color: #2c3e50;
+  margin: 0;
+}
+
+.audit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.audit-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.meta-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meta-badge.install     { background: #e8f4fd; color: #2980b9; }
+.meta-badge.billed      { background: #d4edda; color: #155724; }
+.meta-badge.never-billed { background: #fff3cd; color: #856404; }
+
+/* Loading spinner */
+.audit-loading {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 4px solid #e0e0e0;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.audit-error {
+  padding: 20px;
+  background: #fff3cd;
+  border-radius: 6px;
+  color: #856404;
+}
+
+/* Summary grid */
+.audit-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.audit-stat {
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.audit-stat.total   { background: #e8f4fd; }
+.audit-stat.ok      { background: #d4edda; }
+.audit-stat.partial { background: #fff3cd; }
+.audit-stat.missing { background: #f8d7da; }
+
+.audit-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.audit-stat-label {
+  font-size: 13px;
+  color: #7f8c8d;
+  margin-top: 4px;
+}
+
+.audit-stat-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e74c3c;
+  margin-top: 2px;
+}
+
+/* Table */
+.audit-table-wrap {
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.audit-table thead tr {
+  background: #f8f9fa;
+}
+
+.audit-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+}
+
+.audit-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #ecf0f1;
+  vertical-align: middle;
+}
+
+.audit-table .date-cell { font-weight: 600; white-space: nowrap; }
+
+.row-missing { background: #fff5f5; }
+.row-partial { background: #fffbf0; }
+.row-ok      { background: #f0fff4; }
+
+/* Badges */
+.type-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.type-badge.initial  { background: #e8f4fd; color: #2980b9; }
+.type-badge.monthly  { background: #f3f4f6; color: #555; }
+
+.status-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-pill.ok      { background: #d4edda; color: #155724; }
+.status-pill.missing { background: #f8d7da; color: #721c24; }
+.status-pill.partial { background: #fff3cd; color: #856404; }
+.status-pill.na      { background: #e2e3e5; color: #6c757d; }
+
+.reading-val {
+  font-size: 11px;
+  color: #7f8c8d;
+  margin-top: 2px;
 }
 </style>

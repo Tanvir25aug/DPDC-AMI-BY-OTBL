@@ -62,4 +62,12 @@ router.get('/latest-analysis', billStopController.getLatestAnalysis);
  */
 router.get('/analysis-history', billStopController.getAnalysisHistory);
 
+/**
+ * @route   GET /api/bill-stop/reading-audit
+ * @desc    Get meter reading audit (expected vs actual monthly reads)
+ * @access  Private
+ * @query   searchValue - Customer ID or Meter Number
+ */
+router.get('/reading-audit', billStopController.getReadingAudit);
+
 module.exports = router;

@@ -212,9 +212,107 @@ const searchCustomerWithBillingStatus = async (searchValue) => {
   }
 };
 
+/**
+ * Get meter reading audit for a customer
+ * Auto-detects meter type (Residential/Commercial), generates expected monthly
+ * reads from install date to today, and compares against actual AMI readings.
+ */
+const getCustomerReadingAudit = async (searchValue) => {
+  let connection;
+
+  try {
+    logger.info(`[Bill Stop Service] Reading audit for: ${searchValue}`);
+
+    const sqlFilePath = path.join(__dirname, '../../reports/customer_reading_audit.sql');
+    let sqlQuery = await fs.readFile(sqlFilePath, 'utf8');
+
+    sqlQuery = sqlQuery
+      .split('\n')
+      .filter(line => !line.trim().startsWith('--'))
+      .join('\n')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/;$/, '');
+
+    connection = await getOracleConnection();
+    connection.callTimeout = 90000; // 90 seconds
+
+    const result = await connection.execute(
+      sqlQuery,
+      { search_value: searchValue },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT, maxRows: 0 }
+    );
+
+    if (result.rows.length === 0) {
+      return {
+        success: false,
+        message: 'No meter data found. Customer may not have an active AMI meter.',
+        data: null
+      };
+    }
+
+    const rows = result.rows;
+    const first = rows[0];
+
+    // Group rows by expected_date
+    const byDate = {};
+    rows.forEach(row => {
+      const date = row.EXPECTED_DATE;
+      if (!byDate[date]) {
+        byDate[date] = {
+          expected_date: date,
+          date_type: row.DATE_TYPE,
+          readings: []
+        };
+      }
+      byDate[date].readings.push({
+        reading_type: row.READING_TYPE,
+        reading_val:  row.READING_VAL,
+        last_updated: row.LAST_UPDATED,
+        status:       row.STATUS
+      });
+    });
+
+    const months = Object.values(byDate);
+    const totalMonths   = months.length;
+    const missingMonths = months.filter(m => m.readings.every(r => r.status === 'Missing')).length;
+    const okMonths      = months.filter(m => m.readings.every(r => r.status === 'OK')).length;
+    const partialMonths = totalMonths - missingMonths - okMonths;
+
+    return {
+      success: true,
+      data: {
+        customer_id:  first.CUSTOMER_ID,
+        meter_no:     first.METER_NO,
+        install_date: first.INSTALL_DATE,
+        last_bill_dt: first.LAST_BILL_DT,
+        bill_status:  first.BILL_STATUS,
+        summary: {
+          total_months:       totalMonths,
+          missing_months:     missingMonths,
+          ok_months:          okMonths,
+          partial_months:     partialMonths,
+          missing_percentage: totalMonths > 0
+            ? ((missingMonths / totalMonths) * 100).toFixed(1)
+            : '0.0'
+        },
+        months
+      }
+    };
+  } catch (error) {
+    logger.error('[Bill Stop Service] Error getting reading audit:', error);
+    throw error;
+  } finally {
+    if (connection) {
+      try { await connection.close(); } catch (e) {}
+    }
+  }
+};
+
 module.exports = {
   runBillStopAnalysis,
   getLatestAnalysis,
   getAnalysisHistory,
-  searchCustomerWithBillingStatus
+  searchCustomerWithBillingStatus,
+  getCustomerReadingAudit
 };
