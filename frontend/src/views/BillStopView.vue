@@ -68,28 +68,49 @@
 
     <!-- Search Section -->
     <div class="card search-section">
-      <h3>Search Customer</h3>
+      <h3>Reading Audit Search</h3>
+      <p class="search-hint">Enter one Customer ID or Meter Number per line (max 10 customers)</p>
       <div class="search-form">
         <div class="form-group">
-          <label for="searchValue">Customer ID or Meter Number:</label>
-          <input
+          <label for="searchValue">Customer ID(s) or Meter Number(s):</label>
+          <textarea
             id="searchValue"
             v-model="searchValue"
-            type="text"
-            class="form-control"
-            placeholder="Enter Customer ID or Meter Number"
-            @keyup.enter="handleSearch"
-          />
+            class="form-control search-textarea"
+            placeholder="12345678&#10;87654321&#10;..."
+            rows="3"
+          ></textarea>
         </div>
-        <button class="btn btn-primary" @click="handleSearch" :disabled="loading">
-          <span v-if="loading">Searching...</span>
-          <span v-else>Search</span>
-        </button>
+        <div class="search-actions">
+          <button class="btn btn-primary" @click="handleSearch" :disabled="loading || auditLoading">
+            <span v-if="loading || auditLoading">Searching...</span>
+            <span v-else>Search</span>
+          </button>
+          <button
+            v-if="batchResults.length > 0"
+            class="btn btn-excel"
+            @click="downloadReport('excel')"
+            :disabled="downloadingExcel"
+          >
+            <span v-if="downloadingExcel">Downloading...</span>
+            <span v-else>Download Excel</span>
+          </button>
+          <button
+            v-if="batchResults.length > 0"
+            class="btn btn-pdf"
+            @click="downloadReport('pdf')"
+            :disabled="downloadingPdf"
+          >
+            <span v-if="downloadingPdf">Downloading...</span>
+            <span v-else>Download PDF</span>
+          </button>
+        </div>
       </div>
+      <div v-if="error" class="search-error">{{ error }}</div>
     </div>
 
-    <!-- Customer Info Card (shown after search) -->
-    <div v-if="customerData" class="card customer-info">
+    <!-- Customer Info Card (shown only for single customer search) -->
+    <div v-if="customerData && batchResults.length === 1" class="card customer-info">
       <div class="customer-header">
         <h3>Customer Information</h3>
         <span :class="['billing-status-badge', getBillingStatusClass(customerData.BILLING_STATUS)]">
@@ -160,114 +181,126 @@
           </div>
         </div>
       </div>
-
-      <!-- Action Buttons -->
-      <div class="action-buttons">
-        <button class="btn btn-success">
-          Stop Billing
-        </button>
-        <button class="btn btn-info">
-          Resume Billing
-        </button>
-        <button class="btn btn-secondary">
-          View History
-        </button>
-      </div>
     </div>
 
-    <!-- Reading Audit Section (shown after customer search) -->
-    <div v-if="customerData" class="card audit-section">
-      <div class="audit-header">
-        <h3>Meter Reading Audit</h3>
-        <div class="audit-meta" v-if="auditData">
-          <span :class="['meta-badge', auditData.meter_type === 'Residential' ? 'residential' : 'commercial']">
-            {{ auditData.tariff_code }} — {{ auditData.meter_type }}
-          </span>
-          <span class="meta-badge install">
-            Installed: {{ auditData.install_date }}
-          </span>
-          <span class="meta-badge" :class="auditData.bill_status === 'Never Billed' ? 'never-billed' : 'billed'">
-            Last Bill: {{ auditData.bill_status === 'Never Billed' ? 'Never Billed (using install date)' : auditData.last_bill_dt }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Audit loading -->
-      <div v-if="auditLoading" class="audit-loading">
+    <!-- Reading Audit Results (Accordion) -->
+    <div v-if="auditLoading" class="card audit-loading-card">
+      <div class="audit-loading">
         <div class="spinner"></div>
         <p>Analysing meter readings from Oracle...</p>
       </div>
+    </div>
 
-      <!-- Audit error -->
-      <div v-else-if="auditError" class="audit-error">
-        {{ auditError }}
+    <div v-else-if="batchResults.length > 0" class="audit-results-section">
+      <div class="audit-results-header">
+        <h3>Meter Reading Audit Results ({{ batchResults.length }} customer{{ batchResults.length > 1 ? 's' : '' }})</h3>
       </div>
 
-      <!-- Audit results -->
-      <div v-else-if="auditData">
-        <!-- Summary cards -->
-        <div class="audit-summary-grid">
-          <div class="audit-stat total">
-            <div class="audit-stat-value">{{ auditData.summary.total_months }}</div>
-            <div class="audit-stat-label">Total Months</div>
-          </div>
-          <div class="audit-stat ok">
-            <div class="audit-stat-value">{{ auditData.summary.ok_months }}</div>
-            <div class="audit-stat-label">OK Months</div>
-          </div>
-          <div class="audit-stat partial" v-if="auditData.summary.partial_months > 0">
-            <div class="audit-stat-value">{{ auditData.summary.partial_months }}</div>
-            <div class="audit-stat-label">Partial Months</div>
-          </div>
-          <div class="audit-stat missing">
-            <div class="audit-stat-value">{{ auditData.summary.missing_months }}</div>
-            <div class="audit-stat-label">Missing Months</div>
-            <div class="audit-stat-pct">{{ auditData.summary.missing_percentage }}%</div>
+      <div
+        v-for="(result, idx) in batchResults"
+        :key="result.searchValue"
+        class="card accordion-card"
+      >
+        <!-- Accordion Header -->
+        <div class="accordion-header" @click="toggleAccordion(idx)">
+          <div class="accordion-title">
+            <span class="accordion-arrow" :class="{ open: openAccordions[idx] }">▶</span>
+            <span class="accordion-id">{{ result.searchValue }}</span>
+            <template v-if="result.success">
+              <span class="accordion-meter">Meter: {{ result.data.meter_no }}</span>
+              <span :class="['meta-badge', result.data.meter_type === 'Residential' ? 'residential' : 'commercial']">
+                {{ result.data.tariff_code }} — {{ result.data.meter_type }}
+              </span>
+              <span :class="['meta-badge', result.data.bill_status === 'Never Billed' ? 'never-billed' : 'billed']">
+                Last Bill: {{ result.data.bill_status === 'Never Billed' ? 'Never Billed' : result.data.last_bill_dt }}
+              </span>
+              <span :class="['missing-badge', result.data.summary.missing_months > 0 ? 'has-missing' : 'all-ok']">
+                {{ result.data.summary.missing_months }} Missing
+              </span>
+            </template>
+            <span v-else class="accordion-error-tag">Not Found</span>
           </div>
         </div>
 
-        <!-- Monthly detail table -->
-        <div class="audit-table-wrap">
-          <table class="audit-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th v-for="rt in readingTypes" :key="rt">{{ rt }}</th>
-                <th>Month Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="month in auditData.months"
-                :key="month.expected_date"
-                :class="monthRowClass(month)"
-              >
-                <td class="date-cell">{{ month.expected_date }}</td>
-                <td class="type-cell">
-                  <span :class="['type-badge', month.date_type === 'Initial Read' ? 'initial' : 'monthly']">
-                    {{ month.date_type }}
-                  </span>
-                </td>
-                <td v-for="rt in readingTypes" :key="rt">
-                  <template v-if="getReading(month, rt)">
-                    <span :class="['status-pill', getReading(month, rt).status.toLowerCase()]">
-                      {{ getReading(month, rt).status }}
-                    </span>
-                    <div v-if="getReading(month, rt).status === 'OK'" class="reading-val">
-                      {{ getReading(month, rt).reading_val }}
-                    </div>
-                  </template>
-                  <span v-else class="status-pill na">N/A</span>
-                </td>
-                <td>
-                  <span :class="['status-pill', monthOverallStatus(month).toLowerCase()]">
-                    {{ monthOverallStatus(month) }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Accordion Body -->
+        <div v-if="openAccordions[idx]" class="accordion-body">
+          <!-- Error state -->
+          <div v-if="!result.success" class="audit-error">
+            {{ result.error || 'Customer not found or no meter data available.' }}
+          </div>
+
+          <!-- Success state -->
+          <template v-else>
+            <!-- Meta badges row -->
+            <div class="audit-meta-row">
+              <span class="meta-badge install">Installed: {{ result.data.install_date }}</span>
+            </div>
+
+            <!-- Summary stats -->
+            <div class="audit-summary-grid">
+              <div class="audit-stat total">
+                <div class="audit-stat-value">{{ result.data.summary.total_months }}</div>
+                <div class="audit-stat-label">Total Months</div>
+              </div>
+              <div class="audit-stat ok">
+                <div class="audit-stat-value">{{ result.data.summary.ok_months }}</div>
+                <div class="audit-stat-label">OK Months</div>
+              </div>
+              <div class="audit-stat partial" v-if="result.data.summary.partial_months > 0">
+                <div class="audit-stat-value">{{ result.data.summary.partial_months }}</div>
+                <div class="audit-stat-label">Partial Months</div>
+              </div>
+              <div class="audit-stat missing">
+                <div class="audit-stat-value">{{ result.data.summary.missing_months }}</div>
+                <div class="audit-stat-label">Missing Months</div>
+                <div class="audit-stat-pct">{{ result.data.summary.missing_percentage }}%</div>
+              </div>
+            </div>
+
+            <!-- Monthly detail table -->
+            <div class="audit-table-wrap">
+              <table class="audit-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th v-for="rt in getReadingTypes(result.data)" :key="rt">{{ rt }}</th>
+                    <th>Month Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="month in result.data.months"
+                    :key="month.expected_date"
+                    :class="monthRowClass(month)"
+                  >
+                    <td class="date-cell">{{ month.expected_date }}</td>
+                    <td class="type-cell">
+                      <span :class="['type-badge', month.date_type === 'Initial Read' ? 'initial' : 'monthly']">
+                        {{ month.date_type }}
+                      </span>
+                    </td>
+                    <td v-for="rt in getReadingTypes(result.data)" :key="rt">
+                      <template v-if="getReading(month, rt)">
+                        <span :class="['status-pill', getReading(month, rt).status.toLowerCase()]">
+                          {{ getReading(month, rt).status }}
+                        </span>
+                        <div v-if="getReading(month, rt).status === 'OK'" class="reading-val">
+                          {{ getReading(month, rt).reading_val }}
+                        </div>
+                      </template>
+                      <span v-else class="status-pill na">N/A</span>
+                    </td>
+                    <td>
+                      <span :class="['status-pill', monthOverallStatus(month).toLowerCase()]">
+                        {{ monthOverallStatus(month) }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -341,10 +374,20 @@ const records = ref([]);
 const analysisData = ref(null);
 const analysisLoading = ref(false);
 
-// Reading audit state
-const auditData = ref(null);
+// Batch reading audit state
+const batchResults = ref([]);
 const auditLoading = ref(false);
 const auditError = ref('');
+
+// Accordion open state (array of booleans, one per result)
+const openAccordions = ref([]);
+
+// Download state
+const downloadingExcel = ref(false);
+const downloadingPdf = ref(false);
+
+// Legacy single-audit state (kept for compatibility)
+const auditData = ref(null);
 
 // Load latest analysis on mount
 onMounted(() => {
@@ -423,57 +466,70 @@ const formatCurrency = (amount) => {
   });
 };
 
-// Search customer then auto-trigger reading audit
+// Parse textarea input into an array of trimmed, non-empty values
+const parseSearchValues = () => {
+  return searchValue.value
+    .split('\n')
+    .map(v => v.trim())
+    .filter(Boolean);
+};
+
+// Search customer then auto-trigger batch reading audit
 const handleSearch = async () => {
-  if (!searchValue.value.trim()) {
-    error.value = 'Please enter a Customer ID or Meter Number';
+  const values = parseSearchValues();
+
+  if (values.length === 0) {
+    error.value = 'Please enter at least one Customer ID or Meter Number';
     return;
   }
 
-  loading.value = true;
+  if (values.length > 10) {
+    error.value = 'Maximum 10 customers allowed per search';
+    return;
+  }
+
   error.value = '';
+  batchResults.value = [];
+  openAccordions.value = [];
   customerData.value = null;
   auditData.value = null;
-  auditError.value = '';
 
-  try {
-    const response = await api.get('/bill-stop/search', {
-      params: { searchValue: searchValue.value }
-    });
-
-    if (response.data.success) {
-      customerData.value = response.data.data;
-      // Auto-load reading audit after customer is found
-      fetchReadingAudit(searchValue.value);
-    } else {
-      error.value = response.data.message || 'Customer not found';
+  // For single customer: also fetch customer info card
+  if (values.length === 1) {
+    loading.value = true;
+    try {
+      const response = await api.get('/bill-stop/search', {
+        params: { searchValue: values[0] }
+      });
+      if (response.data.success) {
+        customerData.value = response.data.data;
+      }
+    } catch (err) {
+      // Customer info is optional; audit can still succeed
+    } finally {
+      loading.value = false;
     }
-  } catch (err) {
-    if (err.response?.status === 404) {
-      error.value = 'Customer not found. Please check the Customer ID or Meter Number.';
-    } else {
-      error.value = 'Failed to fetch customer data. Please try again.';
-    }
-  } finally {
-    loading.value = false;
   }
+
+  // Fetch batch reading audit for all values
+  await fetchBatchAudit(values);
 };
 
-// Fetch meter reading audit from backend
-const fetchReadingAudit = async (value) => {
+// Fetch batch reading audit from backend
+const fetchBatchAudit = async (values) => {
   auditLoading.value = true;
   auditError.value = '';
-  auditData.value = null;
 
   try {
-    const response = await api.get('/bill-stop/reading-audit', {
-      params: { searchValue: value }
+    const response = await api.get('/bill-stop/reading-audit/batch', {
+      params: { searchValues: values.join(',') }
     });
 
     if (response.data.success) {
-      auditData.value = response.data.data;
+      batchResults.value = response.data.results;
+      openAccordions.value = response.data.results.map(() => true);
     } else {
-      auditError.value = response.data.message || 'No meter data found.';
+      auditError.value = response.data.message || 'No data found.';
     }
   } catch (err) {
     auditError.value = 'Failed to load reading audit. Please try again.';
@@ -482,12 +538,48 @@ const fetchReadingAudit = async (value) => {
   }
 };
 
-// Derive unique reading types from audit months (preserves order)
-const readingTypes = computed(() => {
-  if (!auditData.value?.months?.length) return [];
+// Toggle accordion open/close
+const toggleAccordion = (idx) => {
+  openAccordions.value = openAccordions.value.map((v, i) => (i === idx ? !v : v));
+};
+
+// Download report as Excel or PDF
+const downloadReport = async (format) => {
+  const values = parseSearchValues();
+  if (values.length === 0) return;
+
+  const flagRef = format === 'excel' ? downloadingExcel : downloadingPdf;
+  flagRef.value = true;
+
+  try {
+    const response = await api.get('/bill-stop/reading-audit/export', {
+      params: { format, searchValues: values.join(',') },
+      responseType: 'blob'
+    });
+
+    const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+    const blob = new Blob([response.data]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reading-audit-${Date.now()}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    error.value = `Failed to download ${format.toUpperCase()} report.`;
+  } finally {
+    flagRef.value = false;
+  }
+};
+
+// Get unique reading types for a single customer's data
+const getReadingTypes = (data) => {
+  if (!data?.months?.length) return [];
   const seen = new Set();
   const types = [];
-  auditData.value.months.forEach(m => {
+  data.months.forEach(m => {
     m.readings.forEach(r => {
       if (!seen.has(r.reading_type)) {
         seen.add(r.reading_type);
@@ -496,6 +588,12 @@ const readingTypes = computed(() => {
     });
   });
   return types;
+};
+
+// Legacy: single reading types computed (kept for compatibility)
+const readingTypes = computed(() => {
+  if (!auditData.value?.months?.length) return [];
+  return getReadingTypes(auditData.value);
 });
 
 // Get a specific reading from a month row
@@ -714,10 +812,29 @@ const formatDate = (dateStr) => {
 }
 
 /* Search Section */
+.search-hint {
+  color: #7f8c8d;
+  font-size: 13px;
+  margin: -10px 0 15px;
+}
+
 .search-section .search-form {
   display: flex;
   gap: 15px;
-  align-items: flex-end;
+  align-items: flex-start;
+}
+
+.search-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 22px;
+}
+
+.search-error {
+  margin-top: 10px;
+  color: #e74c3c;
+  font-size: 13px;
 }
 
 .form-group {
@@ -738,6 +855,13 @@ const formatDate = (dateStr) => {
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  box-sizing: border-box;
+}
+
+.search-textarea {
+  resize: vertical;
+  min-height: 75px;
+  font-family: monospace;
 }
 
 .form-control:focus {
@@ -796,6 +920,24 @@ const formatDate = (dateStr) => {
 
 .btn-secondary:hover {
   background: #7f8c8d;
+}
+
+.btn-excel {
+  background: #1d6f42;
+  color: white;
+}
+
+.btn-excel:hover:not(:disabled) {
+  background: #155734;
+}
+
+.btn-pdf {
+  background: #c0392b;
+  color: white;
+}
+
+.btn-pdf:hover:not(:disabled) {
+  background: #a93226;
 }
 
 .btn-sm {
@@ -1029,6 +1171,111 @@ const formatDate = (dateStr) => {
 
 .error-message {
   color: #e74c3c;
+}
+
+/* ── Audit Results Accordion ─────────────────────────────── */
+.audit-loading-card {
+  text-align: center;
+}
+
+.audit-results-section {
+  margin-bottom: 20px;
+}
+
+.audit-results-header {
+  margin-bottom: 10px;
+}
+
+.audit-results-header h3 {
+  color: #2c3e50;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.accordion-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.accordion-header {
+  padding: 14px 20px;
+  cursor: pointer;
+  user-select: none;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.accordion-header:hover {
+  background: #e9ecef;
+}
+
+.accordion-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.accordion-arrow {
+  font-size: 11px;
+  color: #7f8c8d;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.accordion-arrow.open {
+  transform: rotate(90deg);
+}
+
+.accordion-id {
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 15px;
+  font-family: monospace;
+}
+
+.accordion-meter {
+  color: #7f8c8d;
+  font-size: 13px;
+}
+
+.accordion-error-tag {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.missing-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.missing-badge.has-missing {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.missing-badge.all-ok {
+  background: #d4edda;
+  color: #155724;
+}
+
+.accordion-body {
+  padding: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.audit-meta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 /* ── Reading Audit Section ───────────────────────────────── */

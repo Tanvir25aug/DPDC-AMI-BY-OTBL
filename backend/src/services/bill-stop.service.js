@@ -311,10 +311,212 @@ const getCustomerReadingAudit = async (searchValue) => {
   }
 };
 
+/**
+ * Run reading audit for multiple customers in parallel (max 10)
+ */
+const getBatchReadingAudit = async (searchValues) => {
+  const values = searchValues.slice(0, 10); // safety cap
+  const results = await Promise.allSettled(
+    values.map(v => getCustomerReadingAudit(v.trim()))
+  );
+
+  return results.map((r, i) => ({
+    searchValue: values[i],
+    success: r.status === 'fulfilled' && r.value.success,
+    data:    r.status === 'fulfilled' ? r.value.data : null,
+    message: r.status === 'rejected'  ? r.reason?.message : (r.value.message || null)
+  }));
+};
+
+/**
+ * Export reading audit to Excel (one sheet per customer)
+ */
+const exportReadingAuditExcel = async (auditResults, res) => {
+  const ExcelJS = require('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'DPDC AMI';
+  workbook.created = new Date();
+
+  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+  const missingFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } };
+  const okFill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } };
+  const partialFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+
+  for (const item of auditResults) {
+    if (!item.success || !item.data) continue;
+    const d = item.data;
+
+    // Safe sheet name (max 31 chars, no special chars)
+    const sheetName = `${d.customer_id || item.searchValue}`.replace(/[\\/?*[\]:]/g, '').substring(0, 31);
+    const ws = workbook.addWorksheet(sheetName);
+
+    // ── Info header rows ─────────────────────────────────
+    const infoStyle = { font: { bold: true, size: 10 } };
+    ws.addRow(['Customer ID',  d.customer_id,  '', 'Meter No',     d.meter_no]).font = { size: 10 };
+    ws.addRow(['Tariff',       d.tariff_code,  '', 'Meter Type',   d.meter_type]).font = { size: 10 };
+    ws.addRow(['Install Date', d.install_date, '', 'Last Bill',    d.bill_status === 'Never Billed' ? 'Never Billed' : d.last_bill_dt]).font = { size: 10 };
+    ws.addRow([]);
+    // Summary
+    ws.addRow(['Total Months', d.summary.total_months, '', 'OK', d.summary.ok_months, '', 'Missing', d.summary.missing_months, '', 'Missing %', d.summary.missing_percentage + '%']);
+    ws.addRow([]);
+
+    // ── Column headers ────────────────────────────────────
+    const readingTypes = [];
+    if (d.months?.length) {
+      d.months[0].readings.forEach(r => readingTypes.push(r.reading_type));
+    }
+    const headerRow = ws.addRow(['Date', 'Type', ...readingTypes, 'Month Status']);
+    headerRow.eachCell(cell => {
+      cell.fill = headerFill;
+      cell.font = headerFont;
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    // ── Data rows ─────────────────────────────────────────
+    for (const month of (d.months || [])) {
+      const readingVals = readingTypes.map(rt => {
+        const r = month.readings.find(x => x.reading_type === rt);
+        return r ? r.status : 'N/A';
+      });
+      const overall = month.readings.every(r => r.status === 'OK')      ? 'OK'
+                    : month.readings.every(r => r.status === 'Missing') ? 'Missing'
+                    : 'Partial';
+
+      const row = ws.addRow([month.expected_date, month.date_type, ...readingVals, overall]);
+
+      const rowFill = overall === 'OK' ? okFill : overall === 'Missing' ? missingFill : partialFill;
+      row.eachCell(cell => { cell.fill = rowFill; cell.alignment = { horizontal: 'center' }; });
+    }
+
+    // Column widths
+    ws.getColumn(1).width = 16;
+    ws.getColumn(2).width = 14;
+    readingTypes.forEach((_, i) => { ws.getColumn(3 + i).width = 18; });
+    ws.getColumn(3 + readingTypes.length).width = 14;
+    ws.autoFilter = { from: { row: 7, column: 1 }, to: { row: 7, column: 3 + readingTypes.length } };
+  }
+
+  const timestamp = new Date().toISOString().split('T')[0];
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="Reading_Audit_${timestamp}.xlsx"`);
+  await workbook.xlsx.write(res);
+  res.end();
+};
+
+/**
+ * Export reading audit to PDF
+ */
+const exportReadingAuditPDF = (auditResults, res) => {
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ size: 'A4', margin: 30, layout: 'landscape' });
+
+  const timestamp = new Date().toISOString().split('T')[0];
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="Reading_Audit_${timestamp}.pdf"`);
+  doc.pipe(res);
+
+  const pageW = doc.page.width;
+  const blue  = '#1E3A8A';
+  const green = '#155724';
+  const red   = '#721C24';
+  const amber = '#856404';
+
+  auditResults.forEach((item, idx) => {
+    if (!item.success || !item.data) return;
+    const d = item.data;
+
+    if (idx > 0) doc.addPage();
+
+    // ── Header bar ───────────────────────────────────────
+    doc.rect(0, 0, pageW, 50).fill(blue);
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(14)
+       .text('DPDC AMI — Meter Reading Audit', 30, 14);
+    doc.fontSize(9).font('Helvetica')
+       .text(`Generated: ${new Date().toLocaleString()}`, pageW - 230, 18, { width: 200, align: 'right' });
+
+    // ── Customer info ─────────────────────────────────────
+    let y = 62;
+    doc.fillColor('#2c3e50').font('Helvetica-Bold').fontSize(10);
+    doc.text(`Customer: ${d.customer_id}   Meter: ${d.meter_no}   Tariff: ${d.tariff_code} (${d.meter_type})`, 30, y);
+    y += 14;
+    doc.font('Helvetica').fontSize(9).fillColor('#555');
+    doc.text(`Install Date: ${d.install_date}   Last Bill: ${d.bill_status === 'Never Billed' ? 'Never Billed' : d.last_bill_dt}`, 30, y);
+    y += 16;
+
+    // ── Summary boxes ─────────────────────────────────────
+    const boxes = [
+      { label: 'Total Months', val: d.summary.total_months,   bg: '#E8F4FD', tc: '#2c3e50' },
+      { label: 'OK',           val: d.summary.ok_months,      bg: '#D4EDDA', tc: green },
+      { label: 'Partial',      val: d.summary.partial_months, bg: '#FFF3CD', tc: amber },
+      { label: 'Missing',      val: `${d.summary.missing_months} (${d.summary.missing_percentage}%)`, bg: '#F8D7DA', tc: red }
+    ];
+    const bw = 120, bh = 36, gap = 12;
+    boxes.forEach((b, i) => {
+      const bx = 30 + i * (bw + gap);
+      doc.rect(bx, y, bw, bh).fill(b.bg);
+      doc.fillColor(b.tc).font('Helvetica-Bold').fontSize(13)
+         .text(String(b.val), bx, y + 4, { width: bw, align: 'center' });
+      doc.font('Helvetica').fontSize(8)
+         .text(b.label, bx, y + 20, { width: bw, align: 'center' });
+    });
+    y += bh + 14;
+
+    // ── Reading table ─────────────────────────────────────
+    const readingTypes = d.months?.length ? d.months[0].readings.map(r => r.reading_type) : [];
+    const cols = ['Date', 'Type', ...readingTypes, 'Status'];
+    const colW = [70, 60, ...readingTypes.map(() => 70), 55];
+    const tableW = colW.reduce((a, b) => a + b, 0);
+    const startX = 30;
+
+    // Header
+    doc.rect(startX, y, tableW, 16).fill(blue);
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(7.5);
+    let cx = startX;
+    cols.forEach((c, i) => {
+      doc.text(c, cx + 2, y + 4, { width: colW[i] - 4, align: 'center' });
+      cx += colW[i];
+    });
+    y += 16;
+
+    // Rows
+    doc.font('Helvetica').fontSize(7.5);
+    for (const month of (d.months || [])) {
+      if (y > doc.page.height - 40) { doc.addPage(); y = 30; }
+
+      const overall = month.readings.every(r => r.status === 'OK')      ? 'OK'
+                    : month.readings.every(r => r.status === 'Missing') ? 'Missing'
+                    : 'Partial';
+
+      const rowBg = overall === 'OK' ? '#F0FFF4' : overall === 'Missing' ? '#FFF5F5' : '#FFFBF0';
+      doc.rect(startX, y, tableW, 14).fill(rowBg);
+
+      cx = startX;
+      const cells = [month.expected_date, month.date_type,
+                     ...readingTypes.map(rt => month.readings.find(r => r.reading_type === rt)?.status || 'N/A'),
+                     overall];
+      cells.forEach((cell, i) => {
+        const color = cell === 'Missing' ? red : cell === 'OK' ? green : cell === 'Partial' ? amber : '#2c3e50';
+        doc.fillColor(color).text(cell, cx + 2, y + 3, { width: colW[i] - 4, align: 'center' });
+        cx += colW[i];
+      });
+
+      // Row border
+      doc.rect(startX, y, tableW, 14).stroke('#dee2e6');
+      y += 14;
+    }
+  });
+
+  doc.end();
+};
+
 module.exports = {
   runBillStopAnalysis,
   getLatestAnalysis,
   getAnalysisHistory,
   searchCustomerWithBillingStatus,
-  getCustomerReadingAudit
+  getCustomerReadingAudit,
+  getBatchReadingAudit,
+  exportReadingAuditExcel,
+  exportReadingAuditPDF
 };

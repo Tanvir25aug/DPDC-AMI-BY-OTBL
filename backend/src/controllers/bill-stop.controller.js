@@ -315,6 +315,70 @@ const getReadingAudit = async (req, res) => {
   }
 };
 
+/**
+ * Batch reading audit for multiple customers
+ * @route GET /api/bill-stop/reading-audit/batch
+ * @query searchValues - comma-separated Customer IDs or Meter Numbers (max 10)
+ */
+const getBatchReadingAudit = async (req, res) => {
+  try {
+    const raw = req.query.searchValues || '';
+    const values = raw.split(',').map(v => v.trim()).filter(Boolean);
+
+    if (values.length === 0) {
+      return res.status(400).json({ success: false, message: 'searchValues is required' });
+    }
+    if (values.length > 10) {
+      return res.status(400).json({ success: false, message: 'Maximum 10 customers per request' });
+    }
+
+    logger.info(`[Bill Stop] Batch reading audit for ${values.length} customers`);
+    const results = await billStopService.getBatchReadingAudit(values);
+    res.json({ success: true, results, count: results.length });
+  } catch (error) {
+    logger.error('[Bill Stop] Batch reading audit error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Export reading audit to Excel or PDF
+ * @route GET /api/bill-stop/reading-audit/export
+ * @query format      - 'excel' or 'pdf'
+ * @query searchValues - comma-separated Customer IDs or Meter Numbers (max 10)
+ */
+const exportReadingAudit = async (req, res) => {
+  try {
+    const { format = 'excel' } = req.query;
+    const raw = req.query.searchValues || '';
+    const values = raw.split(',').map(v => v.trim()).filter(Boolean);
+
+    if (values.length === 0) {
+      return res.status(400).json({ success: false, message: 'searchValues is required' });
+    }
+
+    logger.info(`[Bill Stop] Exporting reading audit (${format}) for: ${values.join(', ')}`);
+
+    const results = await billStopService.getBatchReadingAudit(values);
+    const hasData = results.some(r => r.success);
+
+    if (!hasData) {
+      return res.status(404).json({ success: false, message: 'No data found for provided values' });
+    }
+
+    if (format === 'pdf') {
+      billStopService.exportReadingAuditPDF(results, res);
+    } else {
+      await billStopService.exportReadingAuditExcel(results, res);
+    }
+  } catch (error) {
+    logger.error('[Bill Stop] Export error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+};
+
 module.exports = {
   searchCustomer,
   getBillStopRecords,
@@ -324,5 +388,7 @@ module.exports = {
   runAnalysis,
   getLatestAnalysis,
   getAnalysisHistory,
-  getReadingAudit
+  getReadingAudit,
+  getBatchReadingAudit,
+  exportReadingAudit
 };

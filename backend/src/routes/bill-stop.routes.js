@@ -70,4 +70,21 @@ router.get('/analysis-history', billStopController.getAnalysisHistory);
  */
 router.get('/reading-audit', billStopController.getReadingAudit);
 
+/**
+ * @route   GET /api/bill-stop/reading-audit/batch
+ * @desc    Batch reading audit for multiple customers (max 10)
+ * @access  Private
+ * @query   searchValues - comma-separated Customer IDs or Meter Numbers
+ */
+router.get('/reading-audit/batch', billStopController.getBatchReadingAudit);
+
+/**
+ * @route   GET /api/bill-stop/reading-audit/export
+ * @desc    Export reading audit to Excel or PDF
+ * @access  Private
+ * @query   format - 'excel' or 'pdf'
+ * @query   searchValues - comma-separated Customer IDs or Meter Numbers
+ */
+router.get('/reading-audit/export', billStopController.exportReadingAudit);
+
 module.exports = router;
