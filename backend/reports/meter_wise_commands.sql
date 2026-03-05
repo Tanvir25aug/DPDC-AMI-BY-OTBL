@@ -8,7 +8,7 @@ select /*+ PARALLEL(8) */
     l.BO_STATUS_CD COMMAND_STATUS,
     To_CHAR(L.START_DTTM,'DD-MM-YYYY HH:MI:SS') DATE_OF_COMMAND_TRIGGER,
     sum(j.TOT_AMT) * (-1) PAYOFF_BALNCE
-from d1_activity partition(p2026FEB) l
+from d1_activity partition(p2026MAR) l
 -- Start with filtered activity table (today's RC/DC commands only)
 inner join D1_ACTIVITY_REL_OBJ k on k.D1_ACTIVITY_ID=l.D1_ACTIVITY_ID and k.MAINT_OBJ_CD='D1-DEVICE'
 inner join d1_dvc_cfg h on h.D1_DEVICE_ID=k.PK_VALUE1
