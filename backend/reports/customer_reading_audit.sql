@@ -1,7 +1,7 @@
 -- Customer Meter Reading Audit
--- Determines reading types from customer tariff (ci_sa.sched_id):
---   LT-A  → Residential → kWh Daily only
---   Other → Commercial  → kWh Daily + kWh Daily TOD1 + kWh Daily TOD2
+-- Detects reading types from meter's configured measurement components:
+--   1 kWh Daily type  → Residential
+--   3 kWh Daily types → Commercial (kWh Daily + TOD1 + TOD2)
 -- Parameter: :search_value (Customer ID or Meter Number)
 
 WITH meter_info AS (
@@ -28,33 +28,16 @@ WITH meter_info AS (
       AND ROWNUM = 1
 ),
 
--- Get customer tariff from ci_sa.sched_id
-customer_tariff AS (
-    SELECT UPPER(TRIM(sa.sched_id)) AS tariff_code
-    FROM meter_info mi
-    JOIN ci_sp_char sp_char
-        ON  sp_char.adhoc_char_val = mi.customer_id
-        AND sp_char.char_type_cd   = 'CM_LEGCY'
-    JOIN ci_sa_sp sa_sp ON sa_sp.sp_id = sp_char.sp_id
-    JOIN ci_sa    sa    ON sa.sa_id     = sa_sp.sa_id
-                       AND sa.sa_type_cd = 'PPD'
-    WHERE ROWNUM = 1
-),
-
--- Reading types based on tariff:
---   LT-A (Residential) → kWh Daily only
---   All others (Commercial) → kWh Daily + TOD1 + TOD2
+-- Detect which kWh Daily reading types this meter actually has configured
 meter_reading_types AS (
-    SELECT reading_type
-    FROM (
-        SELECT 'kWh Daily'      AS reading_type FROM dual
-        UNION ALL
-        SELECT 'kWh Daily TOD1' FROM dual
-        UNION ALL
-        SELECT 'kWh Daily TOD2' FROM dual
-    )
-    WHERE reading_type = 'kWh Daily'
-       OR (SELECT tariff_code FROM customer_tariff) <> 'LT-A'
+    SELECT DISTINCT mci.ID_VALUE AS reading_type
+    FROM meter_info mi
+    JOIN d1_dvc_identifier di  ON di.ID_VALUE        = mi.meter_no
+                               AND di.DVC_ID_TYPE_FLG = 'D1SN'
+    JOIN d1_dvc_cfg        dc  ON dc.D1_DEVICE_ID    = di.D1_DEVICE_ID
+    JOIN d1_measr_comp     mc  ON mc.DEVICE_CONFIG_ID = dc.DEVICE_CONFIG_ID
+    JOIN d1_measr_comp_identifier mci ON mci.MEASR_COMP_ID = mc.MEASR_COMP_ID
+    WHERE mci.ID_VALUE LIKE 'kWh Daily%'
 ),
 
 last_bill AS (
@@ -139,8 +122,7 @@ actual_reads AS (
 SELECT
     e.customer_id,
     e.meter_no,
-    (SELECT tariff_code FROM customer_tariff)        AS tariff_code,
-    CASE WHEN (SELECT tariff_code FROM customer_tariff) = 'LT-A'
+    CASE WHEN (SELECT COUNT(*) FROM meter_reading_types) = 1
          THEN 'Residential' ELSE 'Commercial' END    AS meter_type,
     TO_CHAR(e.install_date,     'DD-MON-YYYY')       AS install_date,
     TO_CHAR(e.last_bill_dt,     'DD-MON-YYYY')       AS last_bill_dt,
