@@ -19,7 +19,11 @@ const readSummaryFromBatch = async () => {
     return null;
   }
 
-  const latestDate = dateResult.rows[0].batch_date;
+  // Format as YYYY-MM-DD string regardless of how pg returns the date type
+  const rawDate = dateResult.rows[0].batch_date;
+  const latestDate = rawDate instanceof Date
+    ? rawDate.toISOString().split('T')[0]
+    : String(rawDate).split('T')[0];
 
   // Aggregate totals across all CRPs for the latest batch date
   const totalsResult = await pgPool.query(
@@ -38,7 +42,7 @@ const readSummaryFromBatch = async () => {
     total_customers:       parseInt(t.total_customers)       || 0,
     active_billing_count:  parseInt(t.active_billing_count)  || 0,
     stopped_billing_count: parseInt(t.stopped_billing_count) || 0,
-    analysis_month:        latestDate,   // YYYY-MM-DD of the batch run
+    analysis_month:        latestDate,   // clean YYYY-MM-DD string
     created_at:            latestDate,
     performed_by:          'Nightly Batch Job'
   };
