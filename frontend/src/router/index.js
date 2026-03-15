@@ -125,6 +125,18 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/db-reference',
+      name: 'db-reference',
+      component: () => import('@/views/DBReferenceView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/c2m-operations-manual',
+      name: 'c2m-operations-manual',
+      component: () => import('@/views/C2MOperationsManualView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: () => import('@/views/AdminView.vue'),

@@ -290,6 +290,8 @@ import {
   CpuChipIcon,
   StopCircleIcon,
   ShoppingCartIcon,
+  CircleStackIcon,
+  BookOpenIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -387,6 +389,21 @@ const navItems = [
       {
         path: '/nocs-meter-installation',
         label: 'NOCS Wise Meter Installation',
+      },
+    ],
+  },
+  // Reference Docs grouped menu
+  {
+    label: 'Reference Docs',
+    icon: BookOpenIcon,
+    children: [
+      {
+        path: '/db-reference',
+        label: 'DB Reference (2,942 Tables)',
+      },
+      {
+        path: '/c2m-operations-manual',
+        label: 'C2M Operations Manual',
       },
     ],
   },
