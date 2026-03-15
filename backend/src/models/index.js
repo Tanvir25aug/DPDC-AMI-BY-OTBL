@@ -9,6 +9,7 @@ const NocsBalanceSummary = require('./NocsBalanceSummary');
 const BatchExecutionLog = require('./BatchExecutionLog');
 const BatchMonitoringAlert = require('./BatchMonitoringAlert');
 const BillStopAnalysis = require('./BillStopAnalysis');
+const PageAccessConfig = require('./PageAccessConfig');
 
 // Define associations
 User.belongsTo(Role, {
@@ -75,5 +76,6 @@ module.exports = {
   NocsBalanceSummary,
   BatchExecutionLog,
   BatchMonitoringAlert,
-  BillStopAnalysis
+  BillStopAnalysis,
+  PageAccessConfig
 };

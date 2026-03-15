@@ -474,6 +474,123 @@
 }
 
 @layer utilities {
+  /* ========== MATERIAL DESIGN UTILITIES ========== */
+
+  /* Material Ripple Effect */
+  .ripple {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ripple::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-image: radial-gradient(circle, rgba(25, 118, 210, 0.15) 10%, transparent 10%);
+    background-position: center;
+    background-size: 1000% 1000%;
+    opacity: 0;
+    transition: background-size 0.5s ease-out, opacity 0.3s ease-out;
+    pointer-events: none;
+  }
+
+  .ripple:active::after {
+    background-size: 0% 0%;
+    opacity: 1;
+    transition: 0s;
+  }
+
+  /* Material State Layer */
+  .state-layer {
+    position: relative;
+  }
+
+  .state-layer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-color: currentColor;
+    opacity: 0;
+    transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1);
+    pointer-events: none;
+  }
+
+  .state-layer:hover::before {
+    opacity: 0.08;
+  }
+
+  .state-layer:focus-visible::before {
+    opacity: 0.12;
+  }
+
+  .state-layer:active::before {
+    opacity: 0.12;
+  }
+
+  /* Material Surface Tint */
+  .surface-tint {
+    position: relative;
+  }
+
+  .surface-tint::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-color: #1976D2;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .surface-tint-1::after { opacity: 0.05; }
+  .surface-tint-2::after { opacity: 0.08; }
+  .surface-tint-3::after { opacity: 0.11; }
+  .surface-tint-4::after { opacity: 0.12; }
+  .surface-tint-5::after { opacity: 0.14; }
+
+  /* Material Icon Button */
+  .icon-button {
+    @apply relative flex items-center justify-center w-10 h-10 rounded-full;
+    @apply transition-all duration-200 ease-md-standard;
+    @apply text-on-surface-variant hover:bg-on-surface/[0.08] active:bg-on-surface/[0.12];
+  }
+
+  .icon-button-filled {
+    @apply bg-primary-100 text-primary-700 hover:bg-primary-200 active:bg-primary-300;
+  }
+
+  /* Material Navigation Item */
+  .nav-item {
+    @apply relative flex items-center gap-3 px-4 py-3 rounded-full;
+    @apply transition-all duration-200 ease-md-standard;
+    @apply text-on-surface-variant hover:bg-on-surface/[0.08];
+  }
+
+  .nav-item-active {
+    @apply bg-primary-100 text-primary-700;
+  }
+
+  .nav-item-active::before {
+    content: '';
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-700 rounded-full;
+  }
+
+  /* Material Drawer */
+  .drawer {
+    @apply fixed top-0 left-0 h-full bg-surface z-50;
+    @apply shadow-drawer;
+  }
+
+  .drawer-scrim {
+    @apply fixed inset-0 bg-black/40 z-40;
+    @apply transition-opacity duration-300 ease-md-standard;
+  }
+
   /* ========== TEXT UTILITIES ========== */
   .text-balance {
     text-wrap: balance;
@@ -574,25 +691,39 @@
     padding-right: env(safe-area-inset-right);
   }
 
-  /* ========== ELEVATION UTILITIES ========== */
+  /* ========== MATERIAL ELEVATION UTILITIES ========== */
+  .elevation-0 {
+    box-shadow: none;
+  }
+
   .elevation-1 {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
   }
 
   .elevation-2 {
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15);
   }
 
   .elevation-3 {
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15), 0 3px 6px rgba(0, 0, 0, 0.10);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
   }
 
   .elevation-4 {
-    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.15), 0 5px 10px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3), 0 6px 10px 4px rgba(0, 0, 0, 0.15);
   }
 
   .elevation-5 {
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.3), 0 8px 12px 6px rgba(0, 0, 0, 0.15);
+  }
+
+  /* App Bar Elevation */
+  .elevation-app-bar {
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2), 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12);
+  }
+
+  /* Drawer Elevation */
+  .elevation-drawer {
+    box-shadow: 0 8px 10px -5px rgba(0, 0, 0, 0.2), 0 16px 24px 2px rgba(0, 0, 0, 0.14), 0 6px 30px 5px rgba(0, 0, 0, 0.12);
   }
 }
 
@@ -751,4 +882,92 @@
     font-size: 0.8rem !important;
     padding: 0.5rem !important;
   }
+}
+
+/* ========== MATERIAL DESIGN DRAWER ANIMATIONS ========== */
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes drawer-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes scrim-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scrim-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.drawer-enter-active {
+  animation: drawer-slide-in 300ms cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+}
+
+.drawer-leave-active {
+  animation: drawer-slide-out 250ms cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
+}
+
+.scrim-enter-active {
+  animation: scrim-fade-in 300ms cubic-bezier(0.05, 0.7, 0.1, 1) forwards;
+}
+
+.scrim-leave-active {
+  animation: scrim-fade-out 250ms cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
+}
+
+/* Material Navigation Rail (collapsed sidebar) */
+.nav-rail {
+  @apply w-20 flex flex-col items-center py-3 gap-3;
+}
+
+.nav-rail-item {
+  @apply flex flex-col items-center justify-center w-14 h-14 rounded-2xl;
+  @apply transition-all duration-200 cursor-pointer;
+  @apply text-on-surface-variant;
+}
+
+.nav-rail-item:hover {
+  @apply bg-primary-50;
+}
+
+.nav-rail-item-active {
+  @apply bg-primary-100 text-primary-700;
+}
+
+.nav-rail-item-icon {
+  @apply w-6 h-6;
+}
+
+.nav-rail-item-label {
+  @apply text-xs font-medium mt-1 text-center;
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

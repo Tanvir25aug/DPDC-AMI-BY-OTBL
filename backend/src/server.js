@@ -124,6 +124,10 @@ async function startServer() {
     await sequelize.authenticate();
     logger.info('✅ PostgreSQL connected successfully');
 
+    // Sync models — creates any missing tables without altering existing ones
+    await sequelize.sync();
+    logger.info('✅ PostgreSQL models synced (missing tables created)');
+
     // Initialize Oracle connection pool
     await initializeOraclePool();
     logger.info('✅ Oracle connection pool initialized');

@@ -12,6 +12,7 @@ const rcProgressRoutes = require('./rc-progress.routes');
 const amiOperationalRoutes = require('./ami-operational.routes');
 const crpCpcRoutes = require('./crp-cpc.routes');
 const billStopRoutes = require('./bill-stop.routes');
+const pageAccessRoutes = require('./page-access.routes');
 
 // Health check endpoint with Oracle pool status
 router.get('/health', (req, res) => {
@@ -38,5 +39,6 @@ router.use('/rc-progress', rcProgressRoutes);
 router.use('/ami-operational', amiOperationalRoutes);
 router.use('/crp-cpc', crpCpcRoutes);
 router.use('/bill-stop', billStopRoutes);
+router.use('/page-access', pageAccessRoutes);
 
 module.exports = router;

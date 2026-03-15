@@ -160,17 +160,23 @@ router.beforeEach((to, from, next) => {
   const requiresPermission = to.meta.requiresPermission;
 
   if (requiresAuth && !authStore.isAuthenticated) {
-    // Redirect to login if not authenticated
-    next({ name: 'login', query: { redirect: to.fullPath } });
-  } else if (to.name === 'login' && authStore.isAuthenticated) {
-    // Redirect to dashboard if already logged in
-    next({ name: 'dashboard' });
-  } else if (requiresPermission && !authStore.hasPermission(requiresPermission)) {
-    // Redirect to dashboard if no permission
-    next({ name: 'dashboard' });
-  } else {
-    next();
+    return next({ name: 'login', query: { redirect: to.fullPath } });
   }
+
+  if (to.name === 'login' && authStore.isAuthenticated) {
+    return next({ name: 'dashboard' });
+  }
+
+  if (requiresPermission && !authStore.hasPermission(requiresPermission)) {
+    return next({ name: 'dashboard' });
+  }
+
+  // Dynamic page access check
+  if (requiresAuth && to.name && !authStore.canAccessPage(to.name)) {
+    return next({ name: 'dashboard' });
+  }
+
+  next();
 });
 
 export default router;

@@ -51,6 +51,27 @@ export default {
           light: '#64B5F6',
           dark: '#1976D2',
         },
+        // Material Design 3 surface colors
+        surface: {
+          DEFAULT: '#FFFFFF',
+          dim: '#DED8E1',
+          bright: '#FDF7FF',
+          container: {
+            lowest: '#FFFFFF',
+            low: '#F7F2FA',
+            DEFAULT: '#F3EDF7',
+            high: '#ECE6F0',
+            highest: '#E6E0E9',
+          },
+        },
+        'on-surface': {
+          DEFAULT: '#1C1B1F',
+          variant: '#49454F',
+        },
+        outline: {
+          DEFAULT: '#79747E',
+          variant: '#CAC4D0',
+        },
       },
       fontSize: {
         'xs': ['0.75rem', { lineHeight: '1.5', letterSpacing: '-0.006em' }],
@@ -98,11 +119,18 @@ export default {
         'lg': '0 10px 20px rgba(0, 0, 0, 0.1), 0 3px 6px rgba(0, 0, 0, 0.05)',
         'xl': '0 20px 30px rgba(0, 0, 0, 0.12), 0 8px 12px rgba(0, 0, 0, 0.06)',
         '2xl': '0 30px 50px rgba(0, 0, 0, 0.15), 0 15px 20px rgba(0, 0, 0, 0.08)',
-        'elevation-1': '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.04)',
-        'elevation-2': '0 4px 8px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
-        'elevation-3': '0 10px 20px rgba(0, 0, 0, 0.1), 0 3px 6px rgba(0, 0, 0, 0.05)',
-        'elevation-4': '0 20px 30px rgba(0, 0, 0, 0.12), 0 8px 12px rgba(0, 0, 0, 0.06)',
-        'elevation-5': '0 30px 50px rgba(0, 0, 0, 0.15), 0 15px 20px rgba(0, 0, 0, 0.08)',
+        // Material Design 3 Elevation levels (0-5)
+        'elevation-0': 'none',
+        'elevation-1': '0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15)',
+        'elevation-2': '0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15)',
+        'elevation-3': '0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15)',
+        'elevation-4': '0 2px 3px rgba(0, 0, 0, 0.3), 0 6px 10px 4px rgba(0, 0, 0, 0.15)',
+        'elevation-5': '0 4px 4px rgba(0, 0, 0, 0.3), 0 8px 12px 6px rgba(0, 0, 0, 0.15)',
+        // App bar shadow
+        'app-bar': '0 2px 4px -1px rgba(0, 0, 0, 0.2), 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12)',
+        'app-bar-elevated': '0 3px 5px -1px rgba(0, 0, 0, 0.2), 0 6px 10px 0 rgba(0, 0, 0, 0.14), 0 1px 18px 0 rgba(0, 0, 0, 0.12)',
+        // Drawer shadow
+        'drawer': '0 8px 10px -5px rgba(0, 0, 0, 0.2), 0 16px 24px 2px rgba(0, 0, 0, 0.14), 0 6px 30px 5px rgba(0, 0, 0, 0.12)',
       },
       spacing: {
         '13': '3.25rem',
@@ -172,6 +200,13 @@ export default {
       transitionTimingFunction: {
         'bounce-in': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        // Material Design 3 motion curves
+        'md-standard': 'cubic-bezier(0.2, 0, 0, 1)',
+        'md-standard-decelerate': 'cubic-bezier(0, 0, 0, 1)',
+        'md-standard-accelerate': 'cubic-bezier(0.3, 0, 1, 1)',
+        'md-emphasized': 'cubic-bezier(0.2, 0, 0, 1)',
+        'md-emphasized-decelerate': 'cubic-bezier(0.05, 0.7, 0.1, 1)',
+        'md-emphasized-accelerate': 'cubic-bezier(0.3, 0, 0.8, 0.15)',
       },
     },
   },

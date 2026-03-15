@@ -1,101 +1,176 @@
 <template>
-  <header class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+  <header
+    :class="[
+      'sticky top-0 z-30 bg-surface transition-all duration-300 ease-md-standard',
+      isScrolled ? 'shadow-app-bar-elevated' : 'shadow-app-bar',
+      'border-b border-outline-variant/20'
+    ]"
+  >
     <div class="flex items-center justify-between h-16 px-4 lg:px-6">
       <!-- Left: Mobile menu toggle + Breadcrumbs -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
         <!-- Mobile menu toggle -->
         <button
           @click="emit('toggle-sidebar')"
-          class="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          class="lg:hidden icon-button hover:bg-on-surface/[0.08] active:bg-on-surface/[0.12] ripple"
+          aria-label="Toggle menu"
         >
-          <Bars3Icon class="w-6 h-6 text-gray-600" />
+          <Bars3Icon class="w-6 h-6 text-on-surface-variant" />
         </button>
 
-        <!-- Breadcrumbs -->
-        <nav class="hidden md:flex items-center text-sm">
-          <ol class="flex items-center space-x-2">
+        <!-- Breadcrumbs (desktop) -->
+        <nav class="hidden md:flex items-center">
+          <ol class="flex items-center">
             <li v-for="(crumb, index) in breadcrumbs" :key="index" class="flex items-center">
               <router-link
                 v-if="index < breadcrumbs.length - 1"
                 :to="crumb.path"
-                class="text-gray-500 hover:text-primary-600 transition-colors"
+                class="text-sm font-medium text-on-surface-variant hover:text-primary-700 transition-colors duration-200"
               >
                 {{ crumb.label }}
               </router-link>
-              <span v-else class="text-gray-900 font-medium">{{ crumb.label }}</span>
+              <span
+                v-else
+                class="text-sm font-semibold text-on-surface"
+              >
+                {{ crumb.label }}
+              </span>
               <ChevronRightIcon
                 v-if="index < breadcrumbs.length - 1"
-                class="w-4 h-4 text-gray-400 mx-2"
+                class="w-4 h-4 text-outline mx-2"
               />
             </li>
           </ol>
         </nav>
 
         <!-- Page title (mobile) -->
-        <h1 class="md:hidden text-lg font-semibold text-gray-900">
+        <h1 class="md:hidden text-lg font-semibold text-on-surface tracking-tight">
           {{ currentPageTitle }}
         </h1>
       </div>
 
-      <!-- Right: User menu -->
-      <div class="flex items-center gap-4">
+      <!-- Right: Actions -->
+      <div class="flex items-center gap-2">
+        <!-- Search button (optional) -->
+        <!-- <button
+          class="icon-button hover:bg-on-surface/[0.08] active:bg-on-surface/[0.12] ripple hidden sm:flex"
+          aria-label="Search"
+        >
+          <MagnifyingGlassIcon class="w-5 h-5 text-on-surface-variant" />
+        </button> -->
+
         <!-- Notifications (optional) -->
         <!-- <button
-          class="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
+          class="icon-button hover:bg-on-surface/[0.08] active:bg-on-surface/[0.12] ripple relative"
+          aria-label="Notifications"
         >
-          <BellIcon class="w-6 h-6 text-gray-600" />
-          <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          <BellIcon class="w-5 h-5 text-on-surface-variant" />
+          <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
         </button> -->
+
+        <!-- Divider -->
+        <div class="hidden sm:block w-px h-8 bg-outline-variant/40 mx-1"></div>
 
         <!-- User profile dropdown -->
         <div class="relative" v-click-outside="closeUserMenu">
           <button
             @click="toggleUserMenu"
-            class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+            :class="[
+              'flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-200 ease-md-standard ripple',
+              'hover:bg-on-surface/[0.08] active:bg-on-surface/[0.12]',
+              isUserMenuOpen && 'bg-on-surface/[0.08]'
+            ]"
           >
-            <UserCircleIcon class="w-8 h-8 text-gray-600" />
-            <div class="hidden sm:block text-left">
-              <p class="text-sm font-medium text-gray-900">{{ authStore.user?.username }}</p>
-              <p class="text-xs text-gray-500 capitalize">{{ authStore.userRole }}</p>
+            <!-- User Avatar -->
+            <div class="relative">
+              <div class="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center">
+                <span class="text-sm font-bold text-primary-700">
+                  {{ userInitials }}
+                </span>
+              </div>
+              <!-- Online status indicator -->
+              <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-surface"></div>
             </div>
+
+            <!-- User info (desktop) -->
+            <div class="hidden sm:block text-left">
+              <p class="text-sm font-semibold text-on-surface leading-tight">{{ authStore.user?.username }}</p>
+              <p class="text-xs text-on-surface-variant capitalize leading-tight">{{ authStore.userRole }}</p>
+            </div>
+
+            <!-- Dropdown arrow -->
             <ChevronDownIcon
-              :class="['w-4 h-4 text-gray-500 transition-transform', isUserMenuOpen && 'rotate-180']"
+              :class="[
+                'w-4 h-4 text-on-surface-variant transition-transform duration-200 ease-md-standard hidden sm:block',
+                isUserMenuOpen && 'rotate-180'
+              ]"
             />
           </button>
 
           <!-- Dropdown menu -->
-          <transition
-            enter-active-class="transition ease-out duration-100"
-            enter-from-class="transform opacity-0 scale-95"
-            enter-to-class="transform opacity-100 scale-100"
-            leave-active-class="transition ease-in duration-75"
-            leave-from-class="transform opacity-100 scale-100"
-            leave-to-class="transform opacity-0 scale-95"
+          <Transition
+            enter-active-class="transition-all duration-200 ease-md-emphasized-decelerate"
+            enter-from-class="opacity-0 scale-95 -translate-y-2"
+            enter-to-class="opacity-100 scale-100 translate-y-0"
+            leave-active-class="transition-all duration-150 ease-md-emphasized-accelerate"
+            leave-from-class="opacity-100 scale-100 translate-y-0"
+            leave-to-class="opacity-0 scale-95 -translate-y-2"
           >
             <div
               v-if="isUserMenuOpen"
-              class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-elevated border border-gray-200 py-1"
+              class="absolute right-0 mt-2 w-64 bg-surface rounded-2xl shadow-elevation-3 border border-outline-variant/30 overflow-hidden"
             >
-              <router-link
-                to="/profile"
-                @click="closeUserMenu"
-                class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <UserCircleIcon class="w-5 h-5 text-gray-500" />
-                Profile Settings
-              </router-link>
+              <!-- User info header -->
+              <div class="px-4 py-4 bg-surface-container-low border-b border-outline-variant/30">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                    <span class="text-lg font-bold text-primary-700">
+                      {{ userInitials }}
+                    </span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-on-surface truncate">{{ authStore.user?.username }}</p>
+                    <p class="text-xs text-on-surface-variant truncate capitalize">{{ authStore.userRole }}</p>
+                  </div>
+                </div>
+              </div>
 
-              <div class="border-t border-gray-200 my-1"></div>
+              <!-- Menu items -->
+              <div class="py-2">
+                <router-link
+                  to="/profile"
+                  @click="closeUserMenu"
+                  class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-on-surface
+                         hover:bg-on-surface/[0.08] transition-colors duration-200 ripple"
+                >
+                  <UserCircleIcon class="w-5 h-5 text-on-surface-variant" />
+                  Profile Settings
+                </router-link>
 
-              <button
-                @click="handleLogout"
-                class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                <ArrowRightOnRectangleIcon class="w-5 h-5" />
-                Logout
-              </button>
+                <!-- <router-link
+                  to="/settings"
+                  @click="closeUserMenu"
+                  class="flex items-center gap-3 px-4 py-3 text-sm font-medium text-on-surface
+                         hover:bg-on-surface/[0.08] transition-colors duration-200 ripple"
+                >
+                  <Cog6ToothIcon class="w-5 h-5 text-on-surface-variant" />
+                  Settings
+                </router-link> -->
+              </div>
+
+              <!-- Logout section -->
+              <div class="border-t border-outline-variant/30 py-2">
+                <button
+                  @click="handleLogout"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-error
+                         hover:bg-error/[0.08] transition-colors duration-200 ripple"
+                >
+                  <ArrowRightOnRectangleIcon class="w-5 h-5" />
+                  Sign out
+                </button>
+              </div>
             </div>
-          </transition>
+          </Transition>
         </div>
       </div>
     </div>
@@ -103,7 +178,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import {
@@ -112,7 +187,9 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  // MagnifyingGlassIcon,
   // BellIcon,
+  // Cog6ToothIcon,
 } from '@heroicons/vue/24/outline';
 
 const emit = defineEmits(['toggle-sidebar']);
@@ -122,11 +199,25 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 const isUserMenuOpen = ref(false);
+const isScrolled = ref(false);
 
 // Page titles mapping
 const pageTitles = {
   '/dashboard': 'Dashboard',
+  '/rc-dc-dashboard': 'RC/DC Monitor',
+  '/rc-in-progress': 'RC In Progress',
+  '/ami-operational': 'AMI Operational',
+  '/meter-wise-report': 'Meter Report',
   '/reports': 'Reports',
+  '/nocs-balance-summary': 'NOCS Balance',
+  '/customer-billing-details': 'Customer Billing',
+  '/customer-details': 'Customer Details',
+  '/crp-cpc': 'CPR-CPC',
+  '/bill-stop': 'Bill Stop',
+  '/bank-wise-collection': 'Bank Wise Collection',
+  '/bank-reconciliation': 'Bank Reconciliation',
+  '/nocs-collection-summary': 'NOCS Collection Summary',
+  '/nocs-meter-installation': 'NOCS Meter Installation',
   '/query-history': 'Query History',
   '/admin': 'User Management',
   '/profile': 'Profile Settings',
@@ -135,6 +226,12 @@ const pageTitles = {
 // Current page title
 const currentPageTitle = computed(() => {
   return pageTitles[route.path] || 'DPDC AMI';
+});
+
+// User initials
+const userInitials = computed(() => {
+  const username = authStore.user?.username || 'U';
+  return username.slice(0, 2).toUpperCase();
 });
 
 // Generate breadcrumbs
@@ -147,9 +244,9 @@ const breadcrumbs = computed(() => {
 
   // Add intermediate crumbs
   let currentPath = '';
-  pathArray.forEach((segment, index) => {
+  pathArray.forEach((segment) => {
     currentPath += `/${segment}`;
-    const label = pageTitles[currentPath] || segment.charAt(0).toUpperCase() + segment.slice(1);
+    const label = pageTitles[currentPath] || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
     crumbs.push({ label, path: currentPath });
   });
 
@@ -173,6 +270,11 @@ const handleLogout = async () => {
   router.push('/login');
 };
 
+// Handle scroll for elevation change
+const handleScroll = () => {
+  isScrolled.value = window.scrollY > 10;
+};
+
 // Click outside directive
 const vClickOutside = {
   mounted(el, binding) {
@@ -187,4 +289,12 @@ const vClickOutside = {
     document.removeEventListener('click', el.clickOutsideEvent);
   },
 };
+
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
 </script>
