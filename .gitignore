@@ -58,3 +58,9 @@ tmp/
 # Windows reserved files
 NUL
 nul
+
+# Claude Code local settings (personal config / permissions)
+.claude/settings.local.json
+
+# Legacy / temp folders
+New folder/
