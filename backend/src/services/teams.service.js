@@ -744,12 +744,12 @@ class TeamsService {
             {
               type: 'FactSet',
               facts: [
-                { title: 'Previous Records:', value: statistics.previousRecords.toLocaleString('en-IN') },
-                { title: 'Current Records:', value: statistics.currentRecords.toLocaleString('en-IN') },
-                { title: 'Records Diff:', value: `${statistics.recordsDiff >= 0 ? '+' : ''}${statistics.recordsDiff.toLocaleString('en-IN')}` },
-                { title: 'Previous RPS:', value: statistics.previousRps.toFixed(2) },
-                { title: 'Current RPS:', value: statistics.currentRps.toFixed(2) },
-                { title: 'Trend:', value: statistics.rpsTrend.toUpperCase() }
+                { title: 'Previous Records:', value: (Number(statistics.previousRecords) || 0).toLocaleString('en-IN') },
+                { title: 'Current Records:', value: (Number(statistics.currentRecords) || 0).toLocaleString('en-IN') },
+                { title: 'Records Diff:', value: `${(statistics.recordsDiff >= 0) ? '+' : ''}${(Number(statistics.recordsDiff) || 0).toLocaleString('en-IN')}` },
+                { title: 'Previous RPS:', value: (Number(statistics.previousRps) || 0).toFixed(2) },
+                { title: 'Current RPS:', value: (Number(statistics.currentRps) || 0).toFixed(2) },
+                { title: 'Trend:', value: (statistics.rpsTrend || 'N/A').toUpperCase() }
               ]
             }
           ]
