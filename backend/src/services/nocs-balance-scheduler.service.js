@@ -50,7 +50,7 @@ async function refreshNocsBalanceData() {
 
     // Step 1: Execute Oracle query (may take 5-10 minutes for 3 lakh customers)
     logger.info('[NOCS Balance Scheduler] Executing Oracle query...');
-    const oracleData = await reportsService.executeReport('nocs_balance_summary');
+    const oracleData = await reportsService.executeReport('nocs_balance_summary', {}, { maxRows: 0, callTimeout: 600000 }); // 10 min timeout, all rows
     logger.info(`[NOCS Balance Scheduler] Oracle query completed. Retrieved ${oracleData.length} NOCS areas`);
 
     // Step 2: Delete old data from PostgreSQL
