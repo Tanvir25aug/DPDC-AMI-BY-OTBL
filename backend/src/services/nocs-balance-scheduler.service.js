@@ -1,3 +1,4 @@
+const cron = require('node-cron');
 const reportsService = require('./reports.service');
 const logger = require('../config/logger');
 const { NocsBalanceSummary, sequelize } = require('../models');
@@ -7,22 +8,21 @@ const { NocsBalanceSummary, sequelize } = require('../models');
  * Refreshes NOCS balance data every hour and stores in PostgreSQL
  *
  * Why we need this:
- * - 3 lakh+ customers means query takes 5-10 minutes
+ * - 3 lakh+ customers means query takes 10-20 minutes
  * - Cannot write to Oracle database (read-only access)
  * - Solution: Run query hourly in background, cache results in PostgreSQL
  * - Users get instant response from PostgreSQL cache (<0.1 seconds)
  *
- * Why PostgreSQL instead of memory:
- * - ✅ Data survives server restarts
- * - ✅ Multiple backend servers can share cache
- * - ✅ Easy to monitor and debug
- * - ✅ Can query data directly with SQL
- * - ✅ Transaction safety
+ * Fixes applied:
+ * - Switched from setInterval to node-cron (fires at clock time, survives PM2 restarts)
+ * - Oracle query runs OUTSIDE PostgreSQL transaction (transaction held open for milliseconds, not 20 min)
+ * - callTimeout set to 30 minutes (query can take 10-20 min on loaded Oracle)
  */
 
-const REFRESH_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds
+// Oracle query timeout: 30 minutes (query takes 10-20 min on heavy load)
+const ORACLE_CALL_TIMEOUT = 30 * 60 * 1000; // 1,800,000 ms
 
-let refreshTimer = null;
+let cronJob = null;
 let isRefreshing = false;
 let lastRefreshTime = null;
 let lastRefreshDuration = null;
@@ -40,30 +40,31 @@ async function refreshNocsBalanceData() {
 
   isRefreshing = true;
   const startTime = Date.now();
-  const transaction = await sequelize.transaction();
 
   try {
     logger.info('========================================');
     logger.info('[NOCS Balance Scheduler] Starting NOCS balance refresh...');
     logger.info(`[NOCS Balance Scheduler] Start time: ${new Date().toISOString()}`);
+    logger.info(`[NOCS Balance Scheduler] Oracle timeout: ${ORACLE_CALL_TIMEOUT / 60000} minutes`);
     logger.info('========================================');
 
-    // Step 1: Execute Oracle query (may take 5-10 minutes for 3 lakh customers)
-    logger.info('[NOCS Balance Scheduler] Executing Oracle query...');
-    const oracleData = await reportsService.executeReport('nocs_balance_summary', {}, { maxRows: 0, callTimeout: 600000 }); // 10 min timeout, all rows
+    // Step 1: Execute Oracle query OUTSIDE any PostgreSQL transaction
+    // This avoids holding a PG transaction open for 10-20 minutes
+    logger.info('[NOCS Balance Scheduler] Executing Oracle query (may take 10-20 minutes)...');
+    const oracleData = await reportsService.executeReport(
+      'nocs_balance_summary',
+      {},
+      { maxRows: 0, callTimeout: ORACLE_CALL_TIMEOUT }
+    );
     logger.info(`[NOCS Balance Scheduler] Oracle query completed. Retrieved ${oracleData.length} NOCS areas`);
 
-    // Step 2: Delete old data from PostgreSQL
-    logger.info('[NOCS Balance Scheduler] Clearing old PostgreSQL data...');
-    await NocsBalanceSummary.destroy({
-      where: {},
-      truncate: true,
-      transaction
-    });
-    logger.info('[NOCS Balance Scheduler] Old data cleared');
+    if (!oracleData.length) {
+      logger.warn('[NOCS Balance Scheduler] Oracle returned 0 rows — skipping PostgreSQL update to preserve existing cache');
+      return;
+    }
 
-    // Step 3: Transform and prepare data for PostgreSQL
-    const duration = Date.now() - startTime;
+    // Step 2: Transform data (outside transaction — pure JS, instant)
+    const queryDuration = Date.now() - startTime;
     const preparedData = oracleData.map(row => ({
       nocs_name: row.NOCS_NAME,
       nocs_code: row.NOCS_CODE,
@@ -73,40 +74,40 @@ async function refreshNocsBalanceData() {
       due_qty: parseInt(row.DUE_QTY) || 0,
       due_balance_amt: parseFloat(row.DUE_BALANCE_AMT) || 0,
       net_balance: parseFloat(row.NET_BALANCE) || 0,
-      refresh_duration: duration,
+      refresh_duration: queryDuration,
       created_at: new Date(),
       updated_at: new Date()
     }));
 
-    // Step 4: Insert new data into PostgreSQL
-    logger.info('[NOCS Balance Scheduler] Inserting fresh data into PostgreSQL...');
-    await NocsBalanceSummary.bulkCreate(preparedData, { transaction });
-    logger.info(`[NOCS Balance Scheduler] Inserted ${preparedData.length} records`);
+    // Step 3: Open PostgreSQL transaction ONLY for the fast DB operations (milliseconds)
+    logger.info('[NOCS Balance Scheduler] Writing fresh data to PostgreSQL...');
+    const transaction = await sequelize.transaction();
+    try {
+      await NocsBalanceSummary.destroy({ where: {}, truncate: true, transaction });
+      await NocsBalanceSummary.bulkCreate(preparedData, { transaction });
+      await transaction.commit();
+      logger.info(`[NOCS Balance Scheduler] Inserted ${preparedData.length} records — transaction committed`);
+    } catch (pgError) {
+      await transaction.rollback();
+      logger.error('[NOCS Balance Scheduler] PostgreSQL transaction rolled back:', pgError.message);
+      throw pgError;
+    }
 
-    // Step 5: Commit transaction
-    await transaction.commit();
-    logger.info('[NOCS Balance Scheduler] Transaction committed successfully');
-
+    const totalDuration = Date.now() - startTime;
     lastRefreshTime = new Date();
-    lastRefreshDuration = duration;
+    lastRefreshDuration = totalDuration;
     lastRefreshError = null;
 
     logger.info('========================================');
     logger.info('[NOCS Balance Scheduler] NOCS balance refresh completed successfully');
     logger.info(`[NOCS Balance Scheduler] End time: ${new Date().toISOString()}`);
-    logger.info(`[NOCS Balance Scheduler] Duration: ${(duration / 1000).toFixed(2)} seconds`);
-    logger.info(`[NOCS Balance Scheduler] NOCS areas processed: ${preparedData.length}`);
-    logger.info(`[NOCS Balance Scheduler] Data saved to PostgreSQL table: nocs_balance_summary`);
-    logger.info(`[NOCS Balance Scheduler] Next refresh: ${new Date(Date.now() + REFRESH_INTERVAL).toISOString()}`);
+    logger.info(`[NOCS Balance Scheduler] Total duration: ${(totalDuration / 1000).toFixed(2)} seconds`);
+    logger.info(`[NOCS Balance Scheduler] NOCS areas cached: ${preparedData.length}`);
     logger.info('========================================');
 
   } catch (error) {
     const duration = Date.now() - startTime;
     lastRefreshError = error.message;
-
-    // Rollback transaction on error
-    await transaction.rollback();
-    logger.error('[NOCS Balance Scheduler] Transaction rolled back due to error');
 
     logger.error('========================================');
     logger.error('[NOCS Balance Scheduler] ERROR during NOCS balance refresh');
@@ -115,7 +116,7 @@ async function refreshNocsBalanceData() {
     logger.error(`[NOCS Balance Scheduler] Stack: ${error.stack}`);
     logger.error('========================================');
 
-    // Don't throw - let scheduler continue
+    // Don't throw — let scheduler continue next hour
   } finally {
     isRefreshing = false;
   }
@@ -123,52 +124,55 @@ async function refreshNocsBalanceData() {
 
 /**
  * Start the scheduler
- * Runs immediately on startup, then every hour
+ * Uses node-cron so it fires at the top of every hour (clock time)
+ * regardless of when the process started or was restarted by PM2
  */
 function startScheduler() {
-  if (refreshTimer) {
+  if (cronJob) {
     logger.warn('[NOCS Balance Scheduler] Scheduler already running');
     return;
   }
 
   logger.info('========================================');
   logger.info('[NOCS Balance Scheduler] Starting NOCS Balance Scheduler');
-  logger.info(`[NOCS Balance Scheduler] Refresh interval: Every ${REFRESH_INTERVAL / 60000} minutes`);
+  logger.info('[NOCS Balance Scheduler] Schedule: top of every hour (0 * * * *)');
+  logger.info('[NOCS Balance Scheduler] Timezone: Asia/Dhaka');
   logger.info('========================================');
 
-  // Run immediately on startup
-  refreshNocsBalanceData().catch(err => {
-    logger.error('[NOCS Balance Scheduler] Initial refresh failed:', err);
-  });
-
-  // Schedule hourly refresh
-  refreshTimer = setInterval(() => {
+  // Schedule: minute 0 of every hour — fires at 01:00, 02:00, 03:00 ... 23:00 (Asia/Dhaka)
+  cronJob = cron.schedule('0 * * * *', () => {
     refreshNocsBalanceData().catch(err => {
       logger.error('[NOCS Balance Scheduler] Scheduled refresh failed:', err);
     });
-  }, REFRESH_INTERVAL);
+  }, {
+    timezone: 'Asia/Dhaka'
+  });
 
-  logger.info('[NOCS Balance Scheduler] Scheduler started successfully');
+  logger.info('[NOCS Balance Scheduler] Cron job registered — next run at top of next hour');
+
+  // Also run immediately on startup to populate cache
+  logger.info('[NOCS Balance Scheduler] Running initial refresh now...');
+  refreshNocsBalanceData().catch(err => {
+    logger.error('[NOCS Balance Scheduler] Initial refresh failed:', err);
+  });
 }
 
 /**
  * Stop the scheduler
  */
 function stopScheduler() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
+  if (cronJob) {
+    cronJob.stop();
+    cronJob = null;
     logger.info('[NOCS Balance Scheduler] Scheduler stopped');
   }
 }
 
 /**
  * Get cached NOCS balance data from PostgreSQL
- * Returns data or triggers refresh if not available
  */
 async function getCachedData() {
   try {
-    // Query PostgreSQL for cached data
     const data = await NocsBalanceSummary.findAll({
       order: [['nocs_name', 'ASC']],
       raw: true
@@ -177,27 +181,18 @@ async function getCachedData() {
     if (data && data.length > 0) {
       logger.info(`[NOCS Balance Scheduler] Returning ${data.length} records from PostgreSQL cache`);
 
-      // Get last update time
       const lastUpdated = data[0].updated_at;
       const ageMinutes = Math.floor((Date.now() - new Date(lastUpdated).getTime()) / 60000);
 
-      return {
-        data,
-        count: data.length,
-        lastUpdated,
-        ageMinutes,
-        source: 'postgresql_cache'
-      };
+      return { data, count: data.length, lastUpdated, ageMinutes, source: 'postgresql_cache' };
     }
 
     logger.warn('[NOCS Balance Scheduler] No data in PostgreSQL cache');
 
-    // If no data and not currently refreshing, trigger a refresh
     if (!isRefreshing) {
       logger.info('[NOCS Balance Scheduler] Triggering immediate refresh...');
       await refreshNocsBalanceData();
 
-      // Try to get data again after refresh
       const newData = await NocsBalanceSummary.findAll({
         order: [['nocs_name', 'ASC']],
         raw: true
@@ -213,7 +208,6 @@ async function getCachedData() {
       }
     }
 
-    // If refresh is in progress, return null (controller will handle)
     return null;
 
   } catch (error) {
@@ -223,13 +217,12 @@ async function getCachedData() {
 }
 
 /**
- * Force immediate refresh (for manual refresh button)
+ * Force immediate refresh (manual refresh button)
  */
 async function forceRefresh() {
   logger.info('[NOCS Balance Scheduler] Manual refresh triggered');
   await refreshNocsBalanceData();
 
-  // Return fresh data from PostgreSQL
   try {
     const data = await NocsBalanceSummary.findAll({
       order: [['nocs_name', 'ASC']],
@@ -257,7 +250,6 @@ async function forceRefresh() {
  * Get scheduler status
  */
 async function getStatus() {
-  // Check if data exists in PostgreSQL
   let cacheAvailable = false;
   let recordCount = 0;
   let lastUpdated = null;
@@ -278,13 +270,12 @@ async function getStatus() {
   }
 
   return {
-    running: refreshTimer !== null,
+    running: cronJob !== null,
     isRefreshing,
     lastRefreshTime,
     lastRefreshDuration,
     lastRefreshError,
-    nextRefreshTime: refreshTimer ? new Date(Date.now() + REFRESH_INTERVAL) : null,
-    refreshInterval: REFRESH_INTERVAL,
+    schedule: '0 * * * * (top of every hour, Asia/Dhaka)',
     cacheType: 'postgresql',
     cacheAvailable,
     recordCount,
