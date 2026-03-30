@@ -13,7 +13,8 @@ const pgPool = require('../config/postgresDB');
  */
 async function runBillStopBatch() {
   const startTime = new Date();
-  const batchDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  // Use Asia/Dhaka timezone for batch date (server runs in Dhaka time)
+  const batchDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }); // YYYY-MM-DD in Dhaka timezone
   let batchLogId = null;
 
   logger.info('[Bill Stop Batch] Starting batch job...');

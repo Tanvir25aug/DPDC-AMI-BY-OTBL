@@ -10,20 +10,17 @@ const path = require('path');
  * (populated nightly by the batch job - no Oracle query needed)
  */
 const readSummaryFromBatch = async () => {
-  // Get latest batch date
+  // Get latest batch date — cast to text to avoid timezone shifts on timestamp columns
   const dateResult = await pgPool.query(
-    `SELECT batch_date FROM bill_stop_summary ORDER BY batch_date DESC LIMIT 1`
+    `SELECT batch_date::text AS batch_date FROM bill_stop_summary ORDER BY batch_date DESC LIMIT 1`
   );
 
   if (dateResult.rows.length === 0) {
     return null;
   }
 
-  // Format as YYYY-MM-DD string regardless of how pg returns the date type
-  const rawDate = dateResult.rows[0].batch_date;
-  const latestDate = rawDate instanceof Date
-    ? rawDate.toISOString().split('T')[0]
-    : String(rawDate).split('T')[0];
+  // batch_date is now always a plain 'YYYY-MM-DD' string (::text cast prevents Date object timezone issues)
+  const latestDate = String(dateResult.rows[0].batch_date).split('T')[0];
 
   // Aggregate totals across all CRPs for the latest batch date
   const totalsResult = await pgPool.query(
@@ -32,7 +29,7 @@ const readSummaryFromBatch = async () => {
        SUM(active_billing_count) AS active_billing_count,
        SUM(bill_stop_count)      AS stopped_billing_count
      FROM bill_stop_summary
-     WHERE batch_date = $1`,
+     WHERE batch_date::text = $1`,
     [latestDate]
   );
 
