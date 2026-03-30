@@ -34,6 +34,25 @@ function initializeScheduler() {
 
   logger.info(`[Scheduler] Bill Stop batch job scheduled: ${billStopSchedule} (${process.env.TZ || 'Asia/Dhaka'})`);
   logger.info('[Scheduler] Scheduler initialized successfully');
+
+  // Run immediately on startup if no data exists for today (catch up missed 2 AM runs)
+  const pgPool = require('../config/postgresDB');
+  const today = new Date().toISOString().split('T')[0];
+  pgPool.query('SELECT COUNT(*) AS count FROM bill_stop_summary WHERE batch_date = $1', [today])
+    .then(result => {
+      const count = parseInt(result.rows[0].count);
+      if (count === 0) {
+        logger.info(`[Scheduler] No bill stop data for today (${today}). Running catch-up batch now...`);
+        billStopBatchJob.runBillStopBatch().catch(err => {
+          logger.error('[Scheduler] Catch-up bill stop batch failed:', err);
+        });
+      } else {
+        logger.info(`[Scheduler] Bill stop data already exists for today (${today}). Skipping startup run.`);
+      }
+    })
+    .catch(err => {
+      logger.warn('[Scheduler] Could not check bill stop data for today, skipping startup run:', err.message);
+    });
 }
 
 module.exports = {

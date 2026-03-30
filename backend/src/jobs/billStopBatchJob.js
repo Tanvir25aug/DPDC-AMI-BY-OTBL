@@ -38,7 +38,7 @@ async function runBillStopBatch() {
     console.log('Step 1: Fetching bill stop details from Oracle...');
     const detailsStartTime = Date.now();
 
-    const details = await reportsService.executeReport('crp_cpc_bill_stop_full', {}, { maxRows: 0 });
+    const details = await reportsService.executeReport('crp_cpc_bill_stop_full', {}, { maxRows: 0, callTimeout: 30 * 60 * 1000 }); // 30 min timeout (query takes 10-30 min)
 
     const detailsElapsed = ((Date.now() - detailsStartTime) / 1000).toFixed(2);
     logger.info(`[Bill Stop Batch] Fetched ${details.length} bill stop records in ${detailsElapsed}s`);
