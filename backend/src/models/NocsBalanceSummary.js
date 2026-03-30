@@ -69,6 +69,18 @@ const NocsBalanceSummary = sequelize.define('NocsBalanceSummary', {
     defaultValue: 0,
     comment: 'Net balance = CREDIT - DUE (positive = overall credit, negative = overall due)'
   },
+  disconnect_eligible_qty: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Customers with due balance <= -200 (meter eligible for disconnection)'
+  },
+  disconnect_eligible_amt: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Total due amount for disconnect-eligible customers (balance <= -200)'
+  },
   refresh_duration: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -120,6 +132,8 @@ NocsBalanceSummary.getSummaryStats = async function() {
       [sequelize.fn('SUM', sequelize.col('due_qty')), 'total_due_qty'],
       [sequelize.fn('SUM', sequelize.col('due_balance_amt')), 'total_due_amt'],
       [sequelize.fn('SUM', sequelize.col('net_balance')), 'total_net_balance'],
+      [sequelize.fn('SUM', sequelize.col('disconnect_eligible_qty')), 'total_disconnect_eligible_qty'],
+      [sequelize.fn('SUM', sequelize.col('disconnect_eligible_amt')), 'total_disconnect_eligible_amt'],
       [sequelize.fn('MAX', sequelize.col('updated_at')), 'last_updated']
     ],
     raw: true

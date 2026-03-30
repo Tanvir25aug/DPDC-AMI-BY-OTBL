@@ -74,6 +74,8 @@ async function refreshNocsBalanceData() {
       due_qty: parseInt(row.DUE_QTY) || 0,
       due_balance_amt: parseFloat(row.DUE_BALANCE_AMT) || 0,
       net_balance: parseFloat(row.NET_BALANCE) || 0,
+      disconnect_eligible_qty: parseInt(row.DISCONNECT_ELIGIBLE_QTY) || 0,
+      disconnect_eligible_amt: parseFloat(row.DISCONNECT_ELIGIBLE_AMT) || 0,
       refresh_duration: queryDuration,
       created_at: new Date(),
       updated_at: new Date()

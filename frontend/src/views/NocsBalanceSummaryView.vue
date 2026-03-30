@@ -184,6 +184,30 @@
         </div>
       </div>
 
+      <!-- Disconnect Eligible Summary Card -->
+      <div v-if="data.length > 0" class="bg-gradient-to-r from-orange-500 via-red-500 to-rose-600 rounded-3xl p-8 mb-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full -mr-48 -mt-48"></div>
+        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <div class="text-orange-100 text-sm font-semibold uppercase tracking-wider">Disconnect Enable (Due ≤ -200 Taka)</div>
+            </div>
+            <div class="text-5xl font-bold text-white mb-2">৳{{ formatNumber(totalDisconnectEligibleAmt) }}</div>
+            <div class="text-orange-100 text-sm">Total outstanding due amount</div>
+          </div>
+          <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border border-white/30 min-w-[200px]">
+            <div class="text-orange-100 text-sm font-semibold uppercase tracking-wider mb-2">Eligible Meters</div>
+            <div class="text-4xl font-bold text-white">{{ formatNumber(totalDisconnectEligibleQty) }}</div>
+            <div class="text-orange-100 text-sm mt-1">Customers eligible for disconnection</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Net Balance Summary Card -->
       <div v-if="data.length > 0" class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 mb-8 shadow-2xl relative overflow-hidden">
         <div class="absolute inset-0 bg-grid-white/10"></div>
@@ -289,6 +313,21 @@
                     <span v-if="sortColumn === 'NET_BALANCE'" class="text-indigo-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
                   </div>
                 </th>
+                <th @click="sortBy('DISCONNECT_ELIGIBLE_QTY')" class="px-6 py-4 text-right text-xs font-bold text-orange-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    <svg class="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    Disconnect Qty
+                    <span v-if="sortColumn === 'DISCONNECT_ELIGIBLE_QTY'" class="text-orange-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
+                <th @click="sortBy('DISCONNECT_ELIGIBLE_AMT')" class="px-6 py-4 text-right text-xs font-bold text-orange-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div class="flex items-center justify-end gap-1">
+                    Disconnect Amt
+                    <span v-if="sortColumn === 'DISCONNECT_ELIGIBLE_AMT'" class="text-orange-600">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                  </div>
+                </th>
                 <th class="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                   Actions
                 </th>
@@ -334,6 +373,16 @@
                     <span :class="row.NET_BALANCE >= 0 ? 'text-red-500' : 'text-green-500'" class="text-sm">
                       {{ row.NET_BALANCE >= 0 ? '▼' : '▲' }}
                     </span>
+                  </div>
+                </td>
+                <td class="px-6 py-5 text-sm text-right">
+                  <div class="inline-flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-lg">
+                    <span class="font-semibold text-orange-700">{{ formatNumber(row.DISCONNECT_ELIGIBLE_QTY) }}</span>
+                  </div>
+                </td>
+                <td class="px-6 py-5 text-sm text-right">
+                  <div class="inline-flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-lg">
+                    <span class="font-bold text-orange-600">৳{{ formatNumber(row.DISCONNECT_ELIGIBLE_AMT) }}</span>
                   </div>
                 </td>
                 <td class="px-6 py-5 text-sm text-center">
@@ -393,6 +442,16 @@
                     </span>
                   </div>
                 </td>
+                <td class="px-6 py-6 text-right">
+                  <div class="inline-flex items-center gap-1 bg-orange-400/30 px-4 py-2 rounded-lg backdrop-blur-sm">
+                    <span class="text-lg text-white font-bold">{{ formatNumber(totalDisconnectEligibleQty) }}</span>
+                  </div>
+                </td>
+                <td class="px-6 py-6 text-right">
+                  <div class="inline-flex items-center gap-1 bg-orange-400/30 px-4 py-2 rounded-lg backdrop-blur-sm">
+                    <span class="text-lg text-white font-bold">৳{{ formatNumber(totalDisconnectEligibleAmt) }}</span>
+                  </div>
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -439,6 +498,21 @@
                   <span :class="row.NET_BALANCE >= 0 ? 'text-red-600' : 'text-green-600'" class="font-bold text-lg">
                     {{ row.NET_BALANCE >= 0 ? '-' : '' }}৳{{ formatNumber(Math.abs(row.NET_BALANCE)) }}
                   </span>
+                </div>
+              </div>
+
+              <div class="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-3 border-l-4 border-orange-500">
+                <div class="flex justify-between items-start">
+                  <div class="flex items-center gap-1">
+                    <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    <span class="text-orange-800 font-semibold">Disconnect Enable</span>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xs text-orange-700 mb-1">{{ formatNumber(row.DISCONNECT_ELIGIBLE_QTY) }} meters</div>
+                    <div class="font-bold text-orange-600 text-lg">৳{{ formatNumber(row.DISCONNECT_ELIGIBLE_AMT) }}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -554,6 +628,14 @@ const totalDueBalance = computed(() => {
 
 const netBalance = computed(() => {
   return data.value.reduce((sum, row) => sum + (Number(row.NET_BALANCE) || 0), 0);
+});
+
+const totalDisconnectEligibleQty = computed(() => {
+  return data.value.reduce((sum, row) => sum + (Number(row.DISCONNECT_ELIGIBLE_QTY) || 0), 0);
+});
+
+const totalDisconnectEligibleAmt = computed(() => {
+  return data.value.reduce((sum, row) => sum + (Number(row.DISCONNECT_ELIGIBLE_AMT) || 0), 0);
 });
 
 // Chart Data
@@ -754,7 +836,9 @@ const exportToExcel = () => {
     'Credit Balance': row.DUE_BALANCE_AMT,
     'Due Qty': row.CREDIT_QTY,
     'Due Balance': `-${row.CREDIT_BALANCE_AMT}`,
-    'Net Balance': row.NET_BALANCE
+    'Net Balance': row.NET_BALANCE,
+    'Disconnect Enable Qty': row.DISCONNECT_ELIGIBLE_QTY,
+    'Disconnect Enable Amt': row.DISCONNECT_ELIGIBLE_AMT
   }));
 
   // Add totals row
@@ -766,7 +850,9 @@ const exportToExcel = () => {
     'Credit Balance': totalCreditBalance.value,
     'Due Qty': totalDueQty.value,
     'Due Balance': `-${totalDueBalance.value}`,
-    'Net Balance': netBalance.value
+    'Net Balance': netBalance.value,
+    'Disconnect Enable Qty': totalDisconnectEligibleQty.value,
+    'Disconnect Enable Amt': totalDisconnectEligibleAmt.value
   });
 
   // Create worksheet
@@ -781,7 +867,9 @@ const exportToExcel = () => {
     { wch: 18 }, // Positive Balance
     { wch: 12 }, // Negative Qty
     { wch: 18 }, // Negative Balance
-    { wch: 15 }  // Net Balance
+    { wch: 15 }, // Net Balance
+    { wch: 20 }, // Disconnect Enable Qty
+    { wch: 20 }  // Disconnect Enable Amt
   ];
 
   // Create workbook

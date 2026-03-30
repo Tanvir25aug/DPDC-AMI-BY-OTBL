@@ -1159,7 +1159,9 @@ const getNocsBalanceSummary = async (req, res) => {
       CREDIT_BALANCE_AMT: parseFloat(row.credit_balance_amt) || 0,
       DUE_QTY: row.due_qty,
       DUE_BALANCE_AMT: parseFloat(row.due_balance_amt) || 0,
-      NET_BALANCE: parseFloat(row.net_balance) || 0
+      NET_BALANCE: parseFloat(row.net_balance) || 0,
+      DISCONNECT_ELIGIBLE_QTY: parseInt(row.disconnect_eligible_qty) || 0,
+      DISCONNECT_ELIGIBLE_AMT: parseFloat(row.disconnect_eligible_amt) || 0
     }));
 
     res.json({
