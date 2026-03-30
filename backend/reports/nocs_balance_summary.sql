@@ -29,9 +29,9 @@ SELECT /*+ PARALLEL(4) */
     SUM(CASE WHEN nocs_balances.total_balance < 0 THEN ABS(nocs_balances.total_balance) ELSE 0 END) AS DUE_BALANCE_AMT,
     -- NET: Positive = overall credit, Negative = overall due
     SUM(nocs_balances.total_balance)                                                      AS NET_BALANCE,
-    -- DISCONNECT ELIGIBLE: Customers with due balance <= -200 (meter can be disconnected)
-    COUNT(CASE WHEN nocs_balances.total_balance <= -200 THEN 1 END)                       AS DISCONNECT_ELIGIBLE_QTY,
-    SUM(CASE WHEN nocs_balances.total_balance <= -200 THEN ABS(nocs_balances.total_balance) ELSE 0 END) AS DISCONNECT_ELIGIBLE_AMT
+    -- DISCONNECT ELIGIBLE: Customers with due balance < -200 (meter can be disconnected)
+    COUNT(CASE WHEN nocs_balances.total_balance < -200 THEN 1 END)                        AS DISCONNECT_ELIGIBLE_QTY,
+    SUM(CASE WHEN nocs_balances.total_balance < -200 THEN ABS(nocs_balances.total_balance) ELSE 0 END) AS DISCONNECT_ELIGIBLE_AMT
 FROM (
     -- Pre-aggregate: one row per account with its NOCS and total balance
     SELECT /*+ PARALLEL(a,4) PARALLEL(b,4) PARALLEL(j,4) PARALLEL(pc,4) PARALLEL(vl,4) */

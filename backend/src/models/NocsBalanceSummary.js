@@ -73,13 +73,13 @@ const NocsBalanceSummary = sequelize.define('NocsBalanceSummary', {
     type: DataTypes.INTEGER,
     allowNull: false,
     defaultValue: 0,
-    comment: 'Customers with due balance <= -200 (meter eligible for disconnection)'
+    comment: 'Customers with due balance < -200 (meter eligible for disconnection)'
   },
   disconnect_eligible_amt: {
     type: DataTypes.DECIMAL(15, 2),
     allowNull: false,
     defaultValue: 0,
-    comment: 'Total due amount for disconnect-eligible customers (balance <= -200)'
+    comment: 'Total due amount for disconnect-eligible customers (balance < -200)'
   },
   refresh_duration: {
     type: DataTypes.INTEGER,
