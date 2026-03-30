@@ -249,11 +249,14 @@ async function getLatestBatchInfo() {
 
 /**
  * Check if batch is running
+ * Only counts entries started within the last 2 hours as "running"
+ * (prevents stuck 'running' entries from blocking future runs after server restarts)
  */
 async function isBatchRunning() {
   const result = await pgPool.query(
     `SELECT COUNT(*) as count FROM bill_stop_batch_log
-     WHERE status = 'running'`
+     WHERE status = 'running'
+       AND start_time > NOW() - INTERVAL '2 hours'`
   );
 
   return parseInt(result.rows[0].count) > 0;
