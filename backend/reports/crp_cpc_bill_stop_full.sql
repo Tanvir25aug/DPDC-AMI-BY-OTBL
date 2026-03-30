@@ -16,6 +16,22 @@ WITH CPC_WITH_CRP AS (
         AND cpc_char.adhoc_char_val IS NOT NULL
         AND crp_char.adhoc_char_val IS NOT NULL
 ),
+METER_INFO AS (
+    -- Get AMI meter numbers via d1 (smart meter) tables
+    SELECT
+        cpc.CPC_CUSTOMER_NO,
+        MAX(mtr.id_value) AS METER_NO
+    FROM CPC_WITH_CRP cpc
+    JOIN d1_sp_char d1_sp ON d1_sp.adhoc_char_val = cpc.CPC_CUSTOMER_NO
+        AND d1_sp.char_type_cd = 'CM_LEGCY'
+    LEFT JOIN d1_install_evt evt ON evt.d1_sp_id = d1_sp.d1_sp_id
+        AND evt.d1_removal_dttm IS NULL
+    LEFT JOIN d1_dvc_cfg cfg ON cfg.device_config_id = evt.device_config_id
+    LEFT JOIN d1_dvc_identifier mtr ON mtr.d1_device_id = cfg.d1_device_id
+        AND mtr.dvc_id_type_flg = 'D1SN'
+        AND LENGTH(mtr.id_value) = 8
+    GROUP BY cpc.CPC_CUSTOMER_NO
+),
 SA_WITH_BILLING AS (
     -- Get service agreements with billing status
     SELECT
@@ -41,11 +57,11 @@ ALL_CUSTOMERS AS (
 SELECT
     bs.CRP_ACCOUNT_NO,
     bs.CPC_CUSTOMER_NO,
-    'N/A' AS METER_NO,  -- Simplified for speed
+    COALESCE(mi.METER_NO, 'N/A') AS METER_NO,
     COALESCE(per_name.entity_name, bs.CPC_CUSTOMER_NO) AS CUSTOMER_NAME,
     COALESCE(prem.address1 || ', ' || prem.address2, 'N/A') AS ADDRESS,
-    'N/A' AS NOCS_NAME,  -- Simplified for speed
-    'N/A' AS PHONE_NO,  -- Simplified for speed
+    COALESCE(nocs.descr, 'N/A') AS NOCS_NAME,
+    COALESCE(contact.contact_value, 'N/A') AS PHONE_NO,
     CASE
         WHEN bs.sa_status_flg = '20' THEN 'Active'
         WHEN bs.sa_status_flg = '30' THEN 'Pending Start'
@@ -60,11 +76,19 @@ SELECT
     END AS BILLING_STATUS,
     COALESCE(bal.PAYOFF_BAL, 0) AS CURRENT_BALANCE
 FROM ALL_CUSTOMERS bs
+LEFT JOIN METER_INFO mi ON mi.CPC_CUSTOMER_NO = bs.CPC_CUSTOMER_NO
 LEFT JOIN ci_sa sa ON sa.sa_id = bs.sa_id
 LEFT JOIN ci_acct acc ON acc.acct_id = sa.acct_id
 LEFT JOIN ci_acct_per acc_per ON acc_per.acct_id = acc.acct_id AND acc_per.main_cust_sw = 'Y'
 LEFT JOIN ci_per_name per_name ON per_name.per_id = acc_per.per_id
 LEFT JOIN ci_prem prem ON prem.prem_id = acc.mailing_prem_id
+LEFT JOIN ci_prem_char prem_char ON prem_char.prem_id = prem.prem_id
+    AND prem_char.char_type_cd = 'CM_NOCS'
+LEFT JOIN ci_char_val_l nocs ON nocs.char_val = prem_char.char_val
+    AND nocs.char_type_cd = 'CM_NOCS'
+LEFT JOIN c1_per_contdet contact ON contact.per_id = acc_per.per_id
+    AND contact.comm_rte_type_cd = 'CELLPHONE'
+    AND contact.cnd_primary_flg = 'C1YS'
 LEFT JOIN (
     SELECT sa_id, SUM(tot_amt) AS PAYOFF_BAL
     FROM ci_ft
