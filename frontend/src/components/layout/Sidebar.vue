@@ -365,9 +365,18 @@ const navItems = [
     icon: UserGroupIcon,
   },
   {
-    path: '/bill-stop',
     label: 'Bill Stop',
     icon: StopCircleIcon,
+    children: [
+      {
+        path: '/bill-stop',
+        label: 'Bill Stop Analysis',
+      },
+      {
+        path: '/bill-stop-customers',
+        label: 'Bill Stop Customers',
+      },
+    ],
   },
   // Collection & Vending grouped menu
   {

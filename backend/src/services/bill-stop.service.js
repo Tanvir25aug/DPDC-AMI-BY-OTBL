@@ -507,6 +507,169 @@ const exportReadingAuditPDF = (auditResults, res) => {
   doc.end();
 };
 
+/**
+ * Get paginated bill stop customers from bill_stop_details (billing_status = 'Bill Stop Issue')
+ */
+const getBillStopCustomers = async ({ page = 1, limit = 50, search = '', nocs = '', sort_by = 'current_balance', sort_dir = 'DESC' } = {}) => {
+  const offset = (page - 1) * limit;
+
+  // Allowed sort columns (whitelist to prevent SQL injection)
+  const allowedSort = ['customer_name', 'cpc_customer_no', 'meter_no', 'nocs_name', 'current_balance', 'last_bill_date', 'sa_status_desc'];
+  const sortCol = allowedSort.includes(sort_by) ? sort_by : 'current_balance';
+  const sortDir = sort_dir.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  // Get latest batch date
+  const dateResult = await pgPool.query(
+    `SELECT batch_date::text AS batch_date FROM bill_stop_details ORDER BY batch_date DESC LIMIT 1`
+  );
+  if (dateResult.rows.length === 0) return { customers: [], total: 0, batch_date: null };
+  const batchDate = String(dateResult.rows[0].batch_date).split('T')[0];
+
+  const conditions = [`billing_status = 'Bill Stop Issue'`, `batch_date::text = $1`];
+  const params = [batchDate];
+  let paramIdx = 2;
+
+  if (search) {
+    conditions.push(`(
+      LOWER(customer_name) LIKE $${paramIdx} OR
+      LOWER(cpc_customer_no::text) LIKE $${paramIdx} OR
+      LOWER(meter_no) LIKE $${paramIdx}
+    )`);
+    params.push(`%${search.toLowerCase()}%`);
+    paramIdx++;
+  }
+
+  if (nocs) {
+    conditions.push(`nocs_name = $${paramIdx}`);
+    params.push(nocs);
+    paramIdx++;
+  }
+
+  const where = conditions.join(' AND ');
+
+  const countResult = await pgPool.query(
+    `SELECT COUNT(*) AS total FROM bill_stop_details WHERE ${where}`,
+    params
+  );
+  const total = parseInt(countResult.rows[0].total);
+
+  const dataResult = await pgPool.query(
+    `SELECT cpc_customer_no, crp_account_no, meter_no, customer_name, address, nocs_name,
+            phone_no, sa_status_desc, last_bill_date::text AS last_bill_date, current_balance
+     FROM bill_stop_details
+     WHERE ${where}
+     ORDER BY ${sortCol} ${sortDir} NULLS LAST
+     LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+    [...params, limit, offset]
+  );
+
+  return { customers: dataResult.rows, total, batch_date: batchDate, page, limit };
+};
+
+/**
+ * Get NOCS-wise summary of bill stop customers
+ */
+const getBillStopNocsSummary = async () => {
+  const dateResult = await pgPool.query(
+    `SELECT batch_date::text AS batch_date FROM bill_stop_details ORDER BY batch_date DESC LIMIT 1`
+  );
+  if (dateResult.rows.length === 0) return { nocs: [], batch_date: null, total: 0 };
+  const batchDate = String(dateResult.rows[0].batch_date).split('T')[0];
+
+  const result = await pgPool.query(
+    `SELECT
+       nocs_name,
+       COUNT(*) AS customer_count,
+       SUM(current_balance) AS total_balance,
+       AVG(current_balance) AS avg_balance,
+       MIN(last_bill_date) AS oldest_bill_date
+     FROM bill_stop_details
+     WHERE billing_status = 'Bill Stop Issue' AND batch_date::text = $1
+     GROUP BY nocs_name
+     ORDER BY customer_count DESC`,
+    [batchDate]
+  );
+
+  const totalCount = result.rows.reduce((sum, r) => sum + parseInt(r.customer_count), 0);
+
+  const nocs = result.rows.map(r => ({
+    nocs_name: r.nocs_name,
+    customer_count: parseInt(r.customer_count),
+    percentage: totalCount > 0 ? ((parseInt(r.customer_count) / totalCount) * 100).toFixed(1) : '0.0',
+    total_balance: parseFloat(r.total_balance) || 0,
+    avg_balance: parseFloat(r.avg_balance) || 0,
+    oldest_bill_date: r.oldest_bill_date ? String(r.oldest_bill_date).split('T')[0] : null
+  }));
+
+  return { nocs, batch_date: batchDate, total: totalCount };
+};
+
+/**
+ * Export bill stop customers to Excel
+ */
+const exportBillStopCustomersExcel = async (filters, res) => {
+  const ExcelJS = require('exceljs');
+
+  // Fetch all (no pagination limit for export)
+  const { customers, batch_date } = await getBillStopCustomers({ ...filters, page: 1, limit: 999999 });
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'DPDC AMI';
+  workbook.created = new Date();
+
+  const ws = workbook.addWorksheet('Bill Stop Customers');
+
+  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDC2626' } };
+  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+
+  ws.columns = [
+    { header: '#', key: 'sl', width: 6 },
+    { header: 'CPC Customer No', key: 'cpc_customer_no', width: 18 },
+    { header: 'CPR Account No', key: 'crp_account_no', width: 18 },
+    { header: 'Meter No', key: 'meter_no', width: 16 },
+    { header: 'Customer Name', key: 'customer_name', width: 28 },
+    { header: 'NOCS', key: 'nocs_name', width: 18 },
+    { header: 'Address', key: 'address', width: 35 },
+    { header: 'Phone', key: 'phone_no', width: 16 },
+    { header: 'SA Status', key: 'sa_status_desc', width: 16 },
+    { header: 'Last Bill Date', key: 'last_bill_date', width: 16 },
+    { header: 'Current Balance', key: 'current_balance', width: 18 },
+  ];
+
+  // Style header row
+  const headerRow = ws.getRow(1);
+  headerRow.eachCell(cell => {
+    cell.fill = headerFill;
+    cell.font = headerFont;
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+  });
+  headerRow.height = 20;
+
+  customers.forEach((row, i) => {
+    ws.addRow({
+      sl: i + 1,
+      cpc_customer_no: row.cpc_customer_no,
+      crp_account_no: row.crp_account_no,
+      meter_no: row.meter_no,
+      customer_name: row.customer_name,
+      nocs_name: row.nocs_name,
+      address: row.address,
+      phone_no: row.phone_no,
+      sa_status_desc: row.sa_status_desc,
+      last_bill_date: row.last_bill_date,
+      current_balance: parseFloat(row.current_balance) || 0
+    });
+  });
+
+  // Format balance column as number
+  ws.getColumn('current_balance').numFmt = '#,##0.00';
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="Bill_Stop_Customers_${batch_date}.xlsx"`);
+  await workbook.xlsx.write(res);
+  res.end();
+};
+
 module.exports = {
   runBillStopAnalysis,
   getLatestAnalysis,
@@ -515,5 +678,8 @@ module.exports = {
   getCustomerReadingAudit,
   getBatchReadingAudit,
   exportReadingAuditExcel,
-  exportReadingAuditPDF
+  exportReadingAuditPDF,
+  getBillStopCustomers,
+  getBillStopNocsSummary,
+  exportBillStopCustomersExcel
 };

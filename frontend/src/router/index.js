@@ -125,6 +125,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/bill-stop-customers',
+      name: 'bill-stop-customers',
+      component: () => import('@/views/BillStopCustomersView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/db-reference',
       name: 'db-reference',
       component: () => import('@/views/DBReferenceView.vue'),

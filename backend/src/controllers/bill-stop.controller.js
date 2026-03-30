@@ -379,6 +379,56 @@ const exportReadingAudit = async (req, res) => {
   }
 };
 
+/**
+ * Get paginated bill stop customers (billing_status = 'Bill Stop Issue')
+ * @route GET /api/bill-stop/customers
+ */
+const getBillStopCustomers = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search = '', nocs = '', sort_by, sort_dir } = req.query;
+    const result = await billStopService.getBillStopCustomers({
+      page: parseInt(page),
+      limit: Math.min(parseInt(limit), 200),
+      search,
+      nocs,
+      sort_by,
+      sort_dir
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    logger.error('[Bill Stop] Error fetching bill stop customers:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Get NOCS-wise summary for bill stop customers
+ * @route GET /api/bill-stop/customers/nocs-summary
+ */
+const getBillStopNocsSummary = async (req, res) => {
+  try {
+    const result = await billStopService.getBillStopNocsSummary();
+    res.json({ success: true, ...result });
+  } catch (error) {
+    logger.error('[Bill Stop] Error fetching NOCS summary:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * Export bill stop customers to Excel
+ * @route GET /api/bill-stop/customers/export
+ */
+const exportBillStopCustomers = async (req, res) => {
+  try {
+    const { search = '', nocs = '', sort_by, sort_dir } = req.query;
+    await billStopService.exportBillStopCustomersExcel({ search, nocs, sort_by, sort_dir }, res);
+  } catch (error) {
+    logger.error('[Bill Stop] Export customers error:', error);
+    if (!res.headersSent) res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   searchCustomer,
   getBillStopRecords,
@@ -390,5 +440,8 @@ module.exports = {
   getAnalysisHistory,
   getReadingAudit,
   getBatchReadingAudit,
-  exportReadingAudit
+  exportReadingAudit,
+  getBillStopCustomers,
+  getBillStopNocsSummary,
+  exportBillStopCustomers
 };

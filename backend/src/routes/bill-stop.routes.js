@@ -87,4 +87,27 @@ router.get('/reading-audit/batch', billStopController.getBatchReadingAudit);
  */
 router.get('/reading-audit/export', billStopController.exportReadingAudit);
 
+/**
+ * @route   GET /api/bill-stop/customers/nocs-summary
+ * @desc    Get NOCS-wise breakdown of bill stop customers
+ * @access  Private
+ */
+router.get('/customers/nocs-summary', billStopController.getBillStopNocsSummary);
+
+/**
+ * @route   GET /api/bill-stop/customers/export
+ * @desc    Export bill stop customers to Excel
+ * @access  Private
+ * @query   search, nocs, sort_by, sort_dir
+ */
+router.get('/customers/export', billStopController.exportBillStopCustomers);
+
+/**
+ * @route   GET /api/bill-stop/customers
+ * @desc    Get paginated bill stop customers (billing_status = 'Bill Stop Issue')
+ * @access  Private
+ * @query   page, limit, search, nocs, sort_by, sort_dir
+ */
+router.get('/customers', billStopController.getBillStopCustomers);
+
 module.exports = router;
