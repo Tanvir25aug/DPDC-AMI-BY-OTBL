@@ -454,8 +454,23 @@ const runAndDownload = async (report) => {
     const rows = response.data.data || [];
     if (!rows.length) throw new Error('No data returned from server');
 
+    // Format date fields before export
+    const formattedRows = rows.map(row => {
+      const r = { ...row };
+      if (r.CONN_DATE) {
+        const d = new Date(r.CONN_DATE);
+        if (!isNaN(d)) {
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          const yyyy = d.getFullYear();
+          r.CONN_DATE = `${mm}-${dd}-${yyyy}`;
+        }
+      }
+      return r;
+    });
+
     // Build Excel
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const ws = XLSX.utils.json_to_sheet(formattedRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, report.name.substring(0, 31));
     const filename = `${report.filename}_${new Date().toISOString().split('T')[0]}.xlsx`;
