@@ -59,4 +59,7 @@ router.get('/nocs-customer-payoff/:nocsCode', reportsController.getNocsCustomerP
 // Generic Report Execution (NEW - executes any SQL report with dynamic parameters)
 router.get('/execute', reportsController.executeGenericReport);
 
+// Predefined Download Reports (run & export full dataset)
+router.get('/customer-master-list', reportsController.getCustomerMasterList);
+
 module.exports = router;

@@ -16,6 +16,83 @@
         </div>
       </div>
 
+      <!-- Predefined Download Reports -->
+      <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden mb-6 animate-slide-up">
+        <div class="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Predefined Download Reports
+          </h2>
+          <p class="text-emerald-100 text-sm mt-1">Run a full dataset query and download as Excel. Large reports may take 10–30 minutes.</p>
+        </div>
+
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="report in predefinedReports"
+            :key="report.id"
+            class="border-2 border-gray-100 rounded-xl p-5 hover:border-emerald-200 hover:shadow-md transition-all duration-200 flex flex-col gap-3"
+          >
+            <!-- Report Icon + Name -->
+            <div class="flex items-start gap-3">
+              <div class="bg-emerald-50 p-2.5 rounded-lg shrink-0">
+                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <div class="font-bold text-gray-900 text-sm">{{ report.name }}</div>
+                <div class="text-xs text-gray-500 mt-0.5">{{ report.description }}</div>
+              </div>
+            </div>
+
+            <!-- Columns preview -->
+            <div class="flex flex-wrap gap-1">
+              <span
+                v-for="col in report.columns"
+                :key="col"
+                class="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded font-mono"
+              >{{ col }}</span>
+            </div>
+
+            <!-- Elapsed timer while loading -->
+            <div v-if="downloadState[report.id]?.loading" class="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 flex items-center gap-2">
+              <svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Running query... {{ downloadState[report.id].elapsed }}s elapsed
+            </div>
+
+            <!-- Success state -->
+            <div v-else-if="downloadState[report.id]?.done" class="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2 flex items-center gap-2">
+              <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+              Downloaded {{ downloadState[report.id].count?.toLocaleString() }} rows in {{ downloadState[report.id].duration }}
+            </div>
+
+            <!-- Error state -->
+            <div v-else-if="downloadState[report.id]?.error" class="text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
+              {{ downloadState[report.id].error }}
+            </div>
+
+            <!-- Download Button -->
+            <button
+              @click="runAndDownload(report)"
+              :disabled="downloadState[report.id]?.loading"
+              class="mt-auto w-full px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow hover:shadow-md"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {{ downloadState[report.id]?.loading ? 'Running...' : 'Run & Download Excel' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Query Execution Card -->
       <div class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden mb-6 animate-slide-up">
         <!-- Card Header -->
@@ -334,8 +411,74 @@ SELECT * FROM employees WHERE department = 'IT' ORDER BY hire_date DESC"
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useQueryStore } from '@/stores/query';
+import api from '@/services/api';
+import * as XLSX from 'xlsx';
 
 const queryStore = useQueryStore();
+
+// ─── Predefined Download Reports ────────────────────────────────────────────
+
+const predefinedReports = [
+  {
+    id: 'customer_master_list',
+    name: 'Customer Master List',
+    description: 'All active PPD/POPD customers with meter, feeder, tariff, and contact details. ~3 lakh rows.',
+    endpoint: '/reports/customer-master-list',
+    filename: 'Customer_Master_List',
+    columns: ['NOCS', 'Cust No', 'Name', 'Father', 'Mobile', 'Meter No', 'Phase', 'Tariff', 'Feeder']
+  }
+  // Add more predefined reports here in the future:
+  // { id: 'another_report', name: '...', endpoint: '/reports/...', filename: '...', columns: [...] }
+];
+
+// Per-report state: { loading, elapsed, done, error, count, duration }
+const downloadState = ref({});
+
+const runAndDownload = async (report) => {
+  downloadState.value[report.id] = { loading: true, elapsed: 0, done: false, error: null };
+
+  // Elapsed timer
+  const timerInterval = setInterval(() => {
+    if (downloadState.value[report.id]?.loading) {
+      downloadState.value[report.id].elapsed++;
+    }
+  }, 1000);
+
+  try {
+    const startTime = Date.now();
+
+    const response = await api.get(report.endpoint, {
+      timeout: 90 * 60 * 1000 // 90-minute timeout for large reports
+    });
+
+    const rows = response.data.data || [];
+    if (!rows.length) throw new Error('No data returned from server');
+
+    // Build Excel
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, report.name.substring(0, 31));
+    const filename = `${report.filename}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    downloadState.value[report.id] = {
+      loading: false,
+      done: true,
+      count: rows.length,
+      duration: `${duration}s`,
+      error: null
+    };
+  } catch (err) {
+    downloadState.value[report.id] = {
+      loading: false,
+      done: false,
+      error: err.response?.data?.message || err.message || 'Download failed'
+    };
+  } finally {
+    clearInterval(timerInterval);
+  }
+};
 
 const query = ref('');
 const maxRows = ref(0); // FIXED: Default to 0 (unlimited) instead of 1000

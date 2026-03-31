@@ -1441,6 +1441,46 @@ function formatDateForOracle(date) {
   return `${day}-${month}-${year}`;
 }
 
+/**
+ * Customer Master List — full export
+ * Runs the customer_master_list.sql report (all active PPD/POPD accounts)
+ * ~3 lakh rows, takes 10-30 minutes on Oracle. Timeout: 60 minutes.
+ */
+const getCustomerMasterList = async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const logger = require('../config/logger');
+    logger.info('[Reports] Customer Master List export started');
+
+    const data = await reportsService.executeReport(
+      'customer_master_list',
+      {},
+      { maxRows: 0, callTimeout: 60 * 60 * 1000 } // 60-minute Oracle timeout
+    );
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    logger.info(`[Reports] Customer Master List completed: ${data.length} rows in ${duration}s`);
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+      duration: `${duration}s`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const logger = require('../config/logger');
+    logger.error(`[Reports] Customer Master List failed after ${duration}s: ${error.message}`);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch customer master list',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getRCDCAnalyticsSummary,
   getMeterWiseCommands,
@@ -1468,5 +1508,6 @@ module.exports = {
   getNocsCustomerPayoff,
   getNocsCustomerPayoffPaginated,
   getNocsCustomerPayoffSummary,
-  executeGenericReport
+  executeGenericReport,
+  getCustomerMasterList
 };
